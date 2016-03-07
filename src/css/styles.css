@@ -1,0 +1,35 @@
+@import 'basscss';
+
+/* main */
+
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('../fonts/Ubuntu-L.ttf')  format('truetype');
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+body {
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  font-family: Ubuntu, Helvetica, sans-serif;
+  background-color: #DDD;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: Ubuntu, Helvetica, sans-serif;
+}
+
+/* css variables */
+
+:root {
+  --color-about: #2196F3;
+  --color-skills: #3E59E0;
+  --color-projects: #713ACE;
+  --color-contact: #9C27B0;
+  --shadow-level-1: 0 1px 3px rgba(0,0,0,0.12);
+  --shadow-level-2: 0 3px 6px rgba(0,0,0,0.15);
+  --shadow-level-3: 0 6px 12px rgba(0,0,0,0.15);
+  --shadow-level-4: 0 10px 20px rgba(0,0,0,0.20);
+  --shadow-level-5: 0 15px 30px rgba(0,0,0,0.25);
+}
