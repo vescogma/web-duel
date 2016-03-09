@@ -1,34 +1,20 @@
 import React from 'react';
-import { connect } from 'react-redux';
-import { increment, decrement } from '../actions/counter';
-import Counter from '../components/counter';
+import { Link } from 'react-router'
 
-function mapStateToProps(state) {
-  return {
-    counter: state.counter.count,
-  };
-}
-
-function mapDispatchToProps(dispatch) {
-  return {
-    increaseCounter: () => dispatch(increment()),
-    decreaseCounter: () => dispatch(decrement()),
-  };
-}
-
-const App = ({ counter, increaseCounter, decreaseCounter }) => {
+const App = ({ children }) => {
   return (
     <div>
-      <div>Counter</div>
-      <Counter
-        counter={ counter }
-        increment={ increaseCounter }
-        decrement={ decreaseCounter } />
+      <span>
+        Hello this is the main page yey. A navbar or something would go here...
+      </span>
+      <div>
+        { children }
+      </div>
+      <Link to="/game">
+        GO TO GAME
+      </Link>
     </div>
   );
 };
 
-export default connect(
-  mapStateToProps,
-  mapDispatchToProps
-)(App);
+export default App;

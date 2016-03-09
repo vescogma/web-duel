@@ -1,4 +1,8 @@
+var path = require('path');
+var webpack = require('webpack');
 var postcssImport = require('postcss-import');
+var postcssNext = require('postcss-cssnext');
+var autoprefixer =  require('autoprefixer');
 
 module.exports = {
   entry: './src/index.js',
@@ -9,6 +13,9 @@ module.exports = {
     publicPath: '/',
     sourceMapFilename: 'bundle.map.js',
   },
+  node: {
+    fs: 'empty'
+  },
   module: {
     loaders: [
       {
@@ -18,7 +25,7 @@ module.exports = {
       {
         test: /\.(js)$/,
         exclude: /node_modules/,
-        loaders: ['react-hot', 'babel?presets[]=es2015,presets=react'],
+        loaders: ['react-hot', 'babel?presets[]=es2015,presets[]=react,presets=stage-0,plugins[]=transform-decorators-legacy'],
       },
       {
         test: /\.json$/,
@@ -33,12 +40,22 @@ module.exports = {
         loader: 'url-loader?prefix=font/&limit=5000',
       },
     ],
+    postLoaders: [
+      {
+        include: path.resolve(__dirname, 'node_modules/pixi.js'),
+        loader: 'transform?brfs'
+      }
+    ]
   },
   postcss: function (webpack) {
     return [
       postcssImport({
-        addDependencyTo: webpack
-      })
+        addDependencyTo: webpack,
+      }),
+      postcssNext({
+        browsers: ['ie >= 8', 'last 2 versions'],
+      }),
+      autoprefixer,
     ];
   },
   resolve: {
