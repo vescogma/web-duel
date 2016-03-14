@@ -50,7 +50,13 @@ class Game extends Component {
       .add([
         { key: 'player', url: '../assets/images/player-sprite.png' }
       ])
+      .on("progress", this.loadProgress)
       .load(this.setupScene);
+  };
+
+  loadProgress = (loader, resource) => {
+    console.log("loading: " + resource.name); 
+    console.log("progress: " + loader.progress + "%"); 
   };
 
   setupScene = (loader, resources) => {
@@ -79,18 +85,29 @@ class Game extends Component {
       divideBy(this.state.height, 2),
     );
     this.stage.addChild(this.playerSprite);
+    this.setState({ gameState: this.play })
     this.animate();
   };
 
   animate = () => {
+    this.frame = requestAnimationFrame(this.animate);
+    this.state.gameState();
+    this.renderer.render(this.stage);
+  };
+
+  play = () => {
+    this.playerSprite.pivot.set(0.5, 0.5);
     const x = this.playerSprite.position.x;
     const y = this.playerSprite.position.y;
     this.playerSprite.position.set(
-      x >= this.state.width ? 0 : x + 5,
-      y >= this.state.height ? 0 : y + 5,
+      x >= this.state.width ? 0 : x + 1,
+      y >= this.state.height ? 0 : y + 1,
     );
-    this.renderer.render(this.stage);
-    this.frame = requestAnimationFrame(this.animate);
+  };
+
+  wobble = () => {
+    this.playerSprite.pivot.set(0.25, 0.25);
+    this.playerSprite.rotation = (this.playerSprite.rotation + 0.05) % 1;
   };
 }
 

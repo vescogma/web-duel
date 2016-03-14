@@ -11,7 +11,7 @@ module.exports = {
     path: 'build',
     filename: 'bundle.js',
     publicPath: '/',
-    sourceMapFilename: 'bundle.map.js',
+    sourceMapFilename: 'bundle.map',
   },
   node: {
     fs: 'empty'

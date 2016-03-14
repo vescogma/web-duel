@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "webpack-dev-server --content-base src/ --hot --inline --history-api-fallback",
+    "start": "webpack-dev-server --content-base src/ --hot --inline --history-api-fallback --host 0.0.0.0",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "vescogma",

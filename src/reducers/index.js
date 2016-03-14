@@ -1,9 +1,9 @@
 import { combineReducers } from 'redux';
 import { routerReducer } from 'react-router-redux';
-import counter from './counter';
+import game from './game';
 
 const rootReducer = combineReducers({
-  counter,
+  game,
   routing: routerReducer,
 });
 

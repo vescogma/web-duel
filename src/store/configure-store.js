@@ -8,12 +8,14 @@ const storageConfig = {
   key: 'my-key',
 };
 function configureStore (history, initialState = {}) {
-  const middleware = compose(
+
+  let middleware = compose(
     applyMiddleware(thunk, routerMiddleware(history)),
     persistState('counter', storageConfig),
-    typeof window === 'object' && window.devToolsExtension ?
-      window.devToolsExtension() : DevTools.instrument()
   )
+  if (window && window.devToolsExtension) {
+    middleware = compose(middleware, window.devToolsExtension());
+  }
   const store = createStore(rootReducer, initialState, middleware);
   if (module.hot) {
     module.hot.accept('../reducers', () => {
