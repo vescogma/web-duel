@@ -4,7 +4,6 @@ import {
 
 const INITIAL_STATE = {
   gameState: 'play',
-  zoomLevel: 1,
 };
 
 function gameReducer(state = INITIAL_STATE, action = {}) {

@@ -8,14 +8,11 @@ import { roundTo, modulus } from '../utils/game-utils';
 function mapStateToProps(state) {
   return {
     gameState: state.game.gameState,
-    ratio: state.game.ratio,
-    zoomLevel: state.game.zoomLevel,
   };
 }
 
 function mapDispatchToProps(dispatch) {
   return {
-    setCanvasSize: (size) => dispatch(gameActions.setCanvasSize(size)),
     setGameState: (size) => dispatch(gameActions.setGameState(size)),
   };
 }
@@ -34,16 +31,17 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
-    window.addListener
   }
 
   componentDidMount() {
     window.addEventListener('resize', this.handleResize);
+    window.addEventListener('mousemove', this.handleMouseMove);
     this.loadResources();
   }
 
   componentWillUnmount() {
     window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('mousemove', this.handleMouseMove);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -54,20 +52,19 @@ class GamePage extends Component {
   }
 
   render() {
-    const { props } = this;
     return (
       <div>
         <div className="gameHolder">
           <div id="gameCanvas" ref="gameCanvas" />
         </div>
         <div className="absolute bottom-0">
-          <button onClick={ () => props.setGameState('play') }>
+          <button onClick={ () => this.setPlay() }>
             STRAIGHT
           </button>
-          <button onClick={ () => props.setGameState('rotate') }>
+          <button onClick={ () => this.setRotate() }>
             ROTATE
           </button>
-          <button onClick={ () => props.setGameState('wobble') }>
+          <button onClick={ () => this.setWobble() }>
             WOBBLE
           </button>
         </div>
@@ -82,7 +79,6 @@ class GamePage extends Component {
       .add([
         { key: 'player64', url: '../assets/images/player64.png' },
         { key: 'player128', url: '../assets/images/player128.png' },
-        { key: 'player256', url: '../assets/images/player256.png' },
       ])
       .on("progress", this.loadProgress)
       .load(this.setupScene);
@@ -94,7 +90,6 @@ class GamePage extends Component {
   };
 
   setupScene = (loader, resources) => {
-    const { props } = this;
     this.resources = resources;
     const renderOptions = {
       backgroundColor: 0x222222,
@@ -115,13 +110,20 @@ class GamePage extends Component {
     const playerTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
     this.playerSprite = new PIXI.Sprite(playerTexture);
+    this.playerSprite.anchor.set(0.5, 0.5);
     this.playerSprite.position.set(
       Math.floor(gameConstants.GAME_WIDTH / 2),
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.playerSprite);
+    this.setPlay();
     this.animate();
   };
+
+  onDown = () => {
+    this.playerSprite.scale.x += 0.3;
+    this.playerSprite.scale.y += 0.3;
+  }
 
   /** GAME LOOP **/
 
@@ -133,12 +135,17 @@ class GamePage extends Component {
 
   /** GAME STATES **/
 
+  setPlay = () => {
+    this.props.setGameState('play');
+  };
+
   play = () => {
     const x = this.playerSprite.position.x;
-    this.playerSprite.position.set(
-      x >= gameConstants.GAME_WIDTH ? 0 : x + 1,
-      Math.floor(gameConstants.GAME_HEIGHT / 2),
-    );
+    this.playerSprite.position.x = (x >= gameConstants.GAME_WIDTH) ? 0 : x + 1;
+  };
+
+  setRotate() {
+    this.props.setGameState('rotate');
   };
 
   rotate = () => {
@@ -146,10 +153,41 @@ class GamePage extends Component {
     this.playerSprite.rotation = modulus(rads, (Math.PI * 2));
   };
 
+  setWobble() {
+    this.rads = Math.PI / 60
+    this.offsetY = this.playerSprite.position.y;
+    this.props.setGameState('wobble');
+  };
+
   wobble = () => {
-    const speed = Math.PI / 60;
-    const offset = Math.floor(gameConstants.GAME_HEIGHT / 2)
-    this.playerSprite.y = Math.sin(this.playerSprite.y - offset) + offset;
+    this.rads += Math.PI / 60;
+    const amplitude = Math.floor(gameConstants.GAME_HEIGHT / 6);
+    this.playerSprite.y = -1 * amplitude * Math.sin(this.rads) + this.offsetY;
+  };
+
+  /** INTERACTION **/
+
+  handleMouseMove = (event) => {
+    const mouseGlobal = this.renderer.plugins.interaction.mouse.global;
+    const mouse = {
+      x: Math.floor(mouseGlobal.x / this.scale),
+      y: Math.floor(mouseGlobal.y / this.scale),
+    }
+    const player = this.playerSprite.position;
+    const x = mouse.x - player.x;
+    const y = -1 * (mouse.y - player.y);
+    let finalAngle = 0;
+    if (x === 0) {
+      finalAngle = y >= 0 ? 0 : Math.PI / 2;
+    } else {
+      const angle = Math.atan(Math.abs(y / x));
+      if ((x > 0 && y >= 0) || (x < 0 && y > 0)) {
+        finalAngle = (Math.PI / 2 - angle) * x / Math.abs(x);
+      } else {
+        finalAngle = (Math.PI / 2 + angle) * x / Math.abs(x);
+      }
+    }
+    this.playerSprite.rotation = finalAngle;
   };
 
   /** GAME UTILS **/
