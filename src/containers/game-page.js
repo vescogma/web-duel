@@ -23,9 +23,8 @@ class GamePage extends Component {
     super(props);
     this.state = {
       stateList: {
-        play: this.play,
-        rotate: this.rotate,
-        wobble: this.wobble,
+        main: this.main,
+        move: this.move,
       }
     };
   }
@@ -35,13 +34,17 @@ class GamePage extends Component {
 
   componentDidMount() {
     window.addEventListener('resize', this.handleResize);
-    window.addEventListener('mousemove', this.handleMouseMove);
+    // window.addEventListener('mousemove', this.handleMouseMove);
+    window.addEventListener('mousedown', this.handleMouseDown);
+    window.addEventListener('mouseup', this.handleMouseUp);
     this.loadResources();
   }
 
   componentWillUnmount() {
     window.removeEventListener('resize', this.handleResize);
-    window.removeEventListener('mousemove', this.handleMouseMove);
+    // window.removeEventListener('mousemove', this.handleMouseMove);
+    window.removeEventListener('mousedown', this.handleMouseDown);
+    window.removeEventListener('mouseup', this.handleMouseUp);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -58,15 +61,6 @@ class GamePage extends Component {
           <div id="gameCanvas" ref="gameCanvas" />
         </div>
         <div className="absolute bottom-0">
-          <button onClick={ () => this.setPlay() }>
-            STRAIGHT
-          </button>
-          <button onClick={ () => this.setRotate() }>
-            ROTATE
-          </button>
-          <button onClick={ () => this.setWobble() }>
-            WOBBLE
-          </button>
         </div>
       </div>
     );
@@ -104,6 +98,8 @@ class GamePage extends Component {
       renderOptions,
     );
     this.stage = new PIXI.Container();
+    this.scale = 1;
+    this.interaction = this.renderer.plugins.interaction;
     this.handleResize();
 
     this.refs.gameCanvas.appendChild(this.renderer.view);
@@ -116,7 +112,7 @@ class GamePage extends Component {
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.playerSprite);
-    this.setPlay();
+    this.setMain();
     this.animate();
   };
 
@@ -135,13 +131,16 @@ class GamePage extends Component {
 
   /** GAME STATES **/
 
-  setPlay = () => {
-    this.props.setGameState('play');
+  setMain = () => {
+    this.props.setGameState('main');
   };
 
-  play = () => {
-    const x = this.playerSprite.position.x;
-    this.playerSprite.position.x = (x >= gameConstants.GAME_WIDTH) ? 0 : x + 1;
+  main = () => {
+    if (this.mouseDown === true) {
+      this.setMove();
+    }
+    // const x = this.playerSprite.position.x;
+    // this.playerSprite.position.x = (x >= gameConstants.GAME_WIDTH) ? 0 : x + 1;
   };
 
   setRotate() {
@@ -165,17 +164,34 @@ class GamePage extends Component {
     this.playerSprite.y = -1 * amplitude * Math.sin(this.rads) + this.offsetY;
   };
 
+  setMove = () => {
+    this.props.setGameState('move');
+  };
+
+  move = () => {
+    if (this.mouseDown) {
+      const mouse = this.getLocalMouse(this.interaction.mouse.global);
+      const player = this.playerSprite.position;
+      const x = mouse.x - player.x;
+      const y = mouse.y - player.y;
+      if (Math.abs(x) > 50 || Math.abs(y) > 50) {
+        const speed = 5;
+        const R = Math.sqrt(speed*speed/(x*x + y*y));
+        this.playerSprite.position.set(player.x + x*R, player.y + y*R);
+      }
+    }
+    if (this.mouseUp) {
+      this.setMain();
+    }
+  };
+
   /** INTERACTION **/
 
   handleMouseMove = (event) => {
-    const mouseGlobal = this.renderer.plugins.interaction.mouse.global;
-    const mouse = {
-      x: Math.floor(mouseGlobal.x / this.scale),
-      y: Math.floor(mouseGlobal.y / this.scale),
-    }
+    const mouse = this.getLocalMouse(this.interaction.mouse.global);
     const player = this.playerSprite.position;
     const x = mouse.x - player.x;
-    const y = -1 * (mouse.y - player.y);
+    const y = player.y - mouse.y;
     let finalAngle = 0;
     if (x === 0) {
       finalAngle = y >= 0 ? 0 : Math.PI / 2;
@@ -190,12 +206,26 @@ class GamePage extends Component {
     this.playerSprite.rotation = finalAngle;
   };
 
+  handleMouseDown = (e) => {
+    this.mouseUp = false;
+    this.mouseDown = true;
+  };
+
+  handleMouseUp = (e) => {
+    this.mouseDown = false;
+    this.mouseUp = true;
+  };
+
   /** GAME UTILS **/
 
   handleResize = () => {
     this.scale = Math.min(
       window.innerWidth / gameConstants.GAME_WIDTH,
       (window.innerHeight) / gameConstants.GAME_HEIGHT,
+    );
+    this.stage.hitArea = new PIXI.Rectangle(0, 0,
+      gameConstants.GAME_WIDTH,
+      gameConstants.GAME_HEIGHT,
     );
     this.stage.scale.set(this.scale);
     this.renderer.resize(
@@ -204,6 +234,13 @@ class GamePage extends Component {
     );
     console.log('resized, new scaling: ', this.scale);
   };
+
+  getLocalMouse = (mouseGlobal) => {
+    return {
+      x: Math.floor(mouseGlobal.x / this.scale),
+      y: Math.floor(mouseGlobal.y / this.scale),
+    };
+  }
 }
 
 export default GamePage;
