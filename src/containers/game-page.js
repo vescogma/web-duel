@@ -35,16 +35,16 @@ class GamePage extends Component {
   componentDidMount() {
     window.addEventListener('resize', this.handleResize);
     // window.addEventListener('mousemove', this.handleMouseMove);
-    window.addEventListener('mousedown', this.handleMouseDown);
-    window.addEventListener('mouseup', this.handleMouseUp);
+    // window.addEventListener('mousedown', this.handleMouseDown);
+    // window.addEventListener('mouseup', this.handleMouseUp);
     this.loadResources();
   }
 
   componentWillUnmount() {
     window.removeEventListener('resize', this.handleResize);
     // window.removeEventListener('mousemove', this.handleMouseMove);
-    window.removeEventListener('mousedown', this.handleMouseDown);
-    window.removeEventListener('mouseup', this.handleMouseUp);
+    // window.removeEventListener('mousedown', this.handleMouseDown);
+    // window.removeEventListener('mouseup', this.handleMouseUp);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -71,8 +71,8 @@ class GamePage extends Component {
   loadResources = () => {
     PIXI.loader
       .add([
-        { key: 'player64', url: '../assets/images/player64.png' },
-        { key: 'player128', url: '../assets/images/player128.png' },
+        { key: 'player64', url: '../assets/images/robomage64.png' },
+        { key: 'player128', url: '../assets/images/robomage128.png' },
       ])
       .on("progress", this.loadProgress)
       .load(this.setupScene);
@@ -100,6 +100,7 @@ class GamePage extends Component {
     this.stage = new PIXI.Container();
     this.scale = 1;
     this.interaction = this.renderer.plugins.interaction;
+    this.stage.interactive = true;
     this.handleResize();
 
     this.refs.gameCanvas.appendChild(this.renderer.view);
@@ -116,11 +117,6 @@ class GamePage extends Component {
     this.animate();
   };
 
-  onDown = () => {
-    this.playerSprite.scale.x += 0.3;
-    this.playerSprite.scale.y += 0.3;
-  }
-
   /** GAME LOOP **/
 
   animate = () => {
@@ -132,36 +128,22 @@ class GamePage extends Component {
   /** GAME STATES **/
 
   setMain = () => {
+    this.stage.mousedown = () => {
+      this.setMove();
+    }
+    this.stage.mouseup = () => {
+      this.setMain();
+    }
     this.props.setGameState('main');
   };
 
   main = () => {
-    if (this.mouseDown === true) {
-      this.setMove();
+    const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const diff = {
+      x: mouse.x - this.playerSprite.position.x,
+      y: mouse.y - this.playerSprite.position.y,
     }
-    // const x = this.playerSprite.position.x;
-    // this.playerSprite.position.x = (x >= gameConstants.GAME_WIDTH) ? 0 : x + 1;
-  };
-
-  setRotate() {
-    this.props.setGameState('rotate');
-  };
-
-  rotate = () => {
-    const rads = this.playerSprite.rotation + (Math.PI / 60);
-    this.playerSprite.rotation = modulus(rads, (Math.PI * 2));
-  };
-
-  setWobble() {
-    this.rads = Math.PI / 60
-    this.offsetY = this.playerSprite.position.y;
-    this.props.setGameState('wobble');
-  };
-
-  wobble = () => {
-    this.rads += Math.PI / 60;
-    const amplitude = Math.floor(gameConstants.GAME_HEIGHT / 6);
-    this.playerSprite.y = -1 * amplitude * Math.sin(this.rads) + this.offsetY;
+    this.lookAround(diff);
   };
 
   setMove = () => {
@@ -169,54 +151,38 @@ class GamePage extends Component {
   };
 
   move = () => {
-    if (this.mouseDown) {
-      const mouse = this.getLocalMouse(this.interaction.mouse.global);
-      const player = this.playerSprite.position;
-      const x = mouse.x - player.x;
-      const y = mouse.y - player.y;
-      if (Math.abs(x) > 50 || Math.abs(y) > 50) {
-        const speed = 5;
-        const R = Math.sqrt(speed*speed/(x*x + y*y));
-        this.playerSprite.position.set(player.x + x*R, player.y + y*R);
-      }
+    const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const diff = {
+      x: mouse.x - this.playerSprite.position.x,
+      y: mouse.y - this.playerSprite.position.y,
     }
-    if (this.mouseUp) {
-      this.setMain();
+    this.lookAround(diff);
+    if (Math.abs(diff.x) > 50 || Math.abs(diff.y) > 50) {
+      const speed = 5;
+      const ratio = Math.sqrt(speed * speed / (diff.x * diff.x + diff.y * diff.y));
+      this.playerSprite.position.set(
+        this.playerSprite.position.x + (diff.x * ratio),
+        this.playerSprite.position.y + (diff.y * ratio),
+      );
     }
   };
 
-  /** INTERACTION **/
+  /** GAME UTILS **/
 
-  handleMouseMove = (event) => {
-    const mouse = this.getLocalMouse(this.interaction.mouse.global);
-    const player = this.playerSprite.position;
-    const x = mouse.x - player.x;
-    const y = player.y - mouse.y;
+  lookAround = (diff) => {
     let finalAngle = 0;
-    if (x === 0) {
-      finalAngle = y >= 0 ? 0 : Math.PI / 2;
+    if (diff.x === 0) {
+      finalAngle = diff.y < 0 ? 0 : Math.PI / 2;
     } else {
-      const angle = Math.atan(Math.abs(y / x));
-      if ((x > 0 && y >= 0) || (x < 0 && y > 0)) {
-        finalAngle = (Math.PI / 2 - angle) * x / Math.abs(x);
+      const angle = Math.atan(Math.abs(diff.y / diff.x));
+      if ((diff.x > 0 && diff.y <= 0) || (diff.x < 0 && diff.y <= 0)) {
+        finalAngle = (Math.PI / 2 - angle) * diff.x / Math.abs(diff.x);
       } else {
-        finalAngle = (Math.PI / 2 + angle) * x / Math.abs(x);
+        finalAngle = (Math.PI / 2 + angle) * diff.x / Math.abs(diff.x);
       }
     }
     this.playerSprite.rotation = finalAngle;
   };
-
-  handleMouseDown = (e) => {
-    this.mouseUp = false;
-    this.mouseDown = true;
-  };
-
-  handleMouseUp = (e) => {
-    this.mouseDown = false;
-    this.mouseUp = true;
-  };
-
-  /** GAME UTILS **/
 
   handleResize = () => {
     this.scale = Math.min(
