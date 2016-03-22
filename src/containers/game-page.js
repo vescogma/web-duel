@@ -3,7 +3,12 @@ import { connect } from 'react-redux';
 import gameActions from '../actions/game';
 import gameConstants from '../constants/game';
 import PIXI from 'pixi.js';
-import { roundTo, modulus } from '../utils/game-utils';
+import {
+  roundTo,
+  modulus,
+  checkMoveKeys,
+  checkMaxMovement,
+} from '../utils/game-utils';
 
 function mapStateToProps(state) {
   return {
@@ -30,21 +35,28 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
+    this.setState({
+      scale: 1,
+    });
+    this.state.moveKeys = {
+      ArrowRight: false,
+      ArrowLeft: false,
+      ArrowUp: false,
+      ArrowDown: false,
+    }
   }
 
   componentDidMount() {
     window.addEventListener('resize', this.handleResize);
-    // window.addEventListener('mousemove', this.handleMouseMove);
-    // window.addEventListener('mousedown', this.handleMouseDown);
-    // window.addEventListener('mouseup', this.handleMouseUp);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
     this.loadResources();
   }
 
   componentWillUnmount() {
     window.removeEventListener('resize', this.handleResize);
-    // window.removeEventListener('mousemove', this.handleMouseMove);
-    // window.removeEventListener('mousedown', this.handleMouseDown);
-    // window.removeEventListener('mouseup', this.handleMouseUp);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -52,6 +64,7 @@ class GamePage extends Component {
   }
 
   componentWillReceiveProps(nextProps) {
+    // console.log('will receive props');
   }
 
   render() {
@@ -84,6 +97,7 @@ class GamePage extends Component {
   };
 
   setupScene = (loader, resources) => {
+
     this.resources = resources;
     const renderOptions = {
       backgroundColor: 0x222222,
@@ -98,7 +112,6 @@ class GamePage extends Component {
       renderOptions,
     );
     this.stage = new PIXI.Container();
-    this.scale = 1;
     this.interaction = this.renderer.plugins.interaction;
     this.stage.interactive = true;
     this.handleResize();
@@ -120,7 +133,7 @@ class GamePage extends Component {
   /** GAME LOOP **/
 
   animate = () => {
-    this.frame = requestAnimationFrame(this.animate);
+    requestAnimationFrame(this.animate);
     this.state.stateList[this.props.gameState]();
     this.renderer.render(this.stage);
   };
@@ -128,22 +141,16 @@ class GamePage extends Component {
   /** GAME STATES **/
 
   setMain = () => {
-    this.stage.mousedown = () => {
-      this.setMove();
-    }
-    this.stage.mouseup = () => {
-      this.setMain();
-    }
     this.props.setGameState('main');
   };
 
   main = () => {
-    const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
-    const diff = {
-      x: mouse.x - this.playerSprite.position.x,
-      y: mouse.y - this.playerSprite.position.y,
-    }
-    this.lookAround(diff);
+    // const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
+    // const diff = {
+    //   x: mouse.x - this.playerSprite.position.x,
+    //   y: mouse.y - this.playerSprite.position.y,
+    // }
+    // this.lookAround(diff);
   };
 
   setMove = () => {
@@ -151,23 +158,85 @@ class GamePage extends Component {
   };
 
   move = () => {
-    const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
-    const diff = {
-      x: mouse.x - this.playerSprite.position.x,
-      y: mouse.y - this.playerSprite.position.y,
+    // mouse move
+    // const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
+    // const diff = {
+    //   x: mouse.x - this.playerSprite.position.x,
+    //   y: mouse.y - this.playerSprite.position.y,
+    // }
+    // this.lookAround(diff);
+    // if (Math.abs(diff.x) > 50 || Math.abs(diff.y) > 50) {
+    //   const speed = 5;
+    //   const ratio = Math.sqrt(speed * speed / (diff.x * diff.x + diff.y * diff.y));
+    //   this.playerSprite.position.set(
+    //     this.playerSprite.position.x + (diff.x * ratio),
+    //     this.playerSprite.position.y + (diff.y * ratio),
+    //   );
+    // }
+
+    const speed = 5;
+    let offsetX = 0;
+    let offsetY = 0;
+    if (this.state.moveKeys.ArrowRight || this.state.moveKeys.ArrowLeft) {
+      offsetX = this.state.moveKeys.ArrowRight ? speed : -speed;
     }
-    this.lookAround(diff);
-    if (Math.abs(diff.x) > 50 || Math.abs(diff.y) > 50) {
-      const speed = 5;
-      const ratio = Math.sqrt(speed * speed / (diff.x * diff.x + diff.y * diff.y));
+    if (this.state.moveKeys.ArrowUp || this.state.moveKeys.ArrowDown) {
+      offsetY = this.state.moveKeys.ArrowUp ? -speed : speed;
+    }
+    if (offsetX || offsetY) {
       this.playerSprite.position.set(
-        this.playerSprite.position.x + (diff.x * ratio),
-        this.playerSprite.position.y + (diff.y * ratio),
+        checkMaxMovement(this.playerSprite.position.x, offsetX, 'x'),
+        checkMaxMovement(this.playerSprite.position.y, offsetY, 'y'),
       );
     }
   };
 
   /** GAME UTILS **/
+
+  handleKeyDown = (e) => {
+    if (gameConstants.MOVE_KEYS[e.keyCode]) {
+      this.state.moveKeys[e.code] = true;
+      this.setMove();
+    }
+  };
+
+  handleKeyUp = (e) => {
+    if (gameConstants.MOVE_KEYS[e.keyCode]) {
+      this.state.moveKeys[e.code] = false;
+      if (checkMoveKeys(this.state.moveKeys)) {
+        this.setMain();
+      }
+    }
+  };
+
+  // keyboard = (keyCode) => {
+  //   const key = {};
+  //   key.code = keyCode;
+  //   key.isDown = false;
+  //   key.isUp = true;
+  //   key.press = undefined;
+  //   key.release = undefined;
+  //   //The `downHandler`
+  //   key.downHandler = (event) => {
+  //     if (event.keyCode === key.code) {
+  //       if (key.isUp && key.press) key.press();
+  //       key.isDown = true;
+  //       key.isUp = false;
+  //     }
+  //     event.preventDefault();
+  //   };
+
+  //   //The `upHandler`
+  //   key.upHandler = (event) => {
+  //     if (event.keyCode === key.code) {
+  //       if (key.isDown && key.release) key.release();
+  //       key.isDown = false;
+  //       key.isUp = true;
+  //     }
+  //     event.preventDefault();
+  //   };
+  //   return key;
+  // };
 
   lookAround = (diff) => {
     let finalAngle = 0;
@@ -185,7 +254,7 @@ class GamePage extends Component {
   };
 
   handleResize = () => {
-    this.scale = Math.min(
+    const scale = Math.min(
       window.innerWidth / gameConstants.GAME_WIDTH,
       (window.innerHeight) / gameConstants.GAME_HEIGHT,
     );
@@ -193,20 +262,13 @@ class GamePage extends Component {
       gameConstants.GAME_WIDTH,
       gameConstants.GAME_HEIGHT,
     );
-    this.stage.scale.set(this.scale);
+    this.stage.scale.set(scale);
     this.renderer.resize(
-      Math.ceil(gameConstants.GAME_WIDTH * this.scale),
-      Math.ceil(gameConstants.GAME_HEIGHT * this.scale),
+      Math.ceil(gameConstants.GAME_WIDTH * scale),
+      Math.ceil(gameConstants.GAME_HEIGHT * scale),
     );
-    console.log('resized, new scaling: ', this.scale);
+    this.setState({ scale: scale });
   };
-
-  getLocalMouse = (mouseGlobal) => {
-    return {
-      x: Math.floor(mouseGlobal.x / this.scale),
-      y: Math.floor(mouseGlobal.y / this.scale),
-    };
-  }
 }
 
 export default GamePage;
