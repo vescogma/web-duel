@@ -9,10 +9,10 @@ export function modulus(a, b) {
   return  ((a % b) + b) % b;
 }
 
-export function checkMoveKeys(moveKeys) {
+export function checkAnyKeyPressed(moveKeys) {
   return Object.keys(moveKeys).reduce((prev, next) => {
-    return prev * !moveKeys[next];
-  }, 1);
+    return prev || moveKeys[next];
+  }, 0);
 };
 
 export function checkMaxMovement(position, offset, type) {
@@ -24,4 +24,15 @@ export function checkMaxMovement(position, offset, type) {
     return max;
   }
   return position + offset;
+}
+
+export function checkBoundaries(newPosition) {
+  if (newPosition.x < 0
+    || newPosition.y < 0
+    || newPosition.x > gameConstants.GAME_WIDTH
+    || newPosition.x > gameConstants.GAME_HEIGHT
+  ) {
+    return true;
+  }
+  return false;
 }

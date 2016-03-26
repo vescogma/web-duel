@@ -6,8 +6,9 @@ import PIXI from 'pixi.js';
 import {
   roundTo,
   modulus,
-  checkMoveKeys,
+  checkAnyKeyPressed,
   checkMaxMovement,
+  checkBoundaries,
 } from '../utils/game-utils';
 
 function mapStateToProps(state) {
@@ -27,6 +28,19 @@ class GamePage extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      scale: 1,
+      moveKeys: {
+        ArrowRight: false,
+        ArrowLeft: false,
+        ArrowUp: false,
+        ArrowDown: false,
+      },
+      playerState: 'main',
+      playerStateList: {
+        main: this.main,
+        move: this.move,
+      },
+      shots: [],
       stateList: {
         main: this.main,
         move: this.move,
@@ -35,15 +49,6 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
-    this.setState({
-      scale: 1,
-    });
-    this.state.moveKeys = {
-      ArrowRight: false,
-      ArrowLeft: false,
-      ArrowUp: false,
-      ArrowDown: false,
-    }
   }
 
   componentDidMount() {
@@ -97,7 +102,6 @@ class GamePage extends Component {
   };
 
   setupScene = (loader, resources) => {
-
     this.resources = resources;
     const renderOptions = {
       backgroundColor: 0x222222,
@@ -115,8 +119,16 @@ class GamePage extends Component {
     this.interaction = this.renderer.plugins.interaction;
     this.stage.interactive = true;
     this.handleResize();
-
     this.refs.gameCanvas.appendChild(this.renderer.view);
+    this.setupPlayer();
+
+    this.stage.mouseup = () => {
+      this.shoot();
+    };
+    this.animate();
+  };
+
+  setupPlayer = () => {
     const playerTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
     this.playerSprite = new PIXI.Sprite(playerTexture);
@@ -126,54 +138,26 @@ class GamePage extends Component {
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.playerSprite);
-    this.setMain();
-    this.animate();
-  };
+  }
 
   /** GAME LOOP **/
 
   animate = () => {
     requestAnimationFrame(this.animate);
-    this.state.stateList[this.props.gameState]();
+    this.state.playerStateList[this.state.playerState]();
+    this.manageShots();
     this.renderer.render(this.stage);
   };
 
-  /** GAME STATES **/
-
-  setMain = () => {
-    this.props.setGameState('main');
-  };
+  /** PLAYER STATES/ACTIONS **/
 
   main = () => {
-    // const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
-    // const diff = {
-    //   x: mouse.x - this.playerSprite.position.x,
-    //   y: mouse.y - this.playerSprite.position.y,
-    // }
-    // this.lookAround(diff);
-  };
-
-  setMove = () => {
-    this.props.setGameState('move');
+    if (checkAnyKeyPressed(this.state.moveKeys)) {
+      this.state.playerState = 'move';
+    }
   };
 
   move = () => {
-    // mouse move
-    // const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
-    // const diff = {
-    //   x: mouse.x - this.playerSprite.position.x,
-    //   y: mouse.y - this.playerSprite.position.y,
-    // }
-    // this.lookAround(diff);
-    // if (Math.abs(diff.x) > 50 || Math.abs(diff.y) > 50) {
-    //   const speed = 5;
-    //   const ratio = Math.sqrt(speed * speed / (diff.x * diff.x + diff.y * diff.y));
-    //   this.playerSprite.position.set(
-    //     this.playerSprite.position.x + (diff.x * ratio),
-    //     this.playerSprite.position.y + (diff.y * ratio),
-    //   );
-    // }
-
     const speed = 5;
     let offsetX = 0;
     let offsetY = 0;
@@ -189,54 +173,77 @@ class GamePage extends Component {
         checkMaxMovement(this.playerSprite.position.y, offsetY, 'y'),
       );
     }
+    if (!checkAnyKeyPressed(this.state.moveKeys)) {
+      this.state.playerState = 'main';
+    }
+  };
+
+  shoot = () => {
+    const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const diff = {
+      x: mouse.x - this.playerSprite.position.x,
+      y: mouse.y - this.playerSprite.position.y,
+    }
+    const speed = 50;
+    const ratio = Math.sqrt(speed * speed / ((diff.x * diff.x) + (diff.y * diff.y)));
+    this.setupShot(mouse, diff, ratio, speed);
+  };
+
+  setupShot = (mouse, diff, ratio, speed) => {
+    const shotTexture = window.devicePixelRatio >= 2 ?
+      this.resources.player128.texture : this.resources.player64.texture;
+    this.state.shots.push({
+      sprite: new PIXI.Sprite(shotTexture),
+      mouse: mouse,
+      diff: diff,
+      ratio: ratio,
+      speed: speed,
+    });
+    const shot = this.state.shots[this.state.shots.length - 1];
+    shot.sprite.anchor.set(0.5, 0.5);
+    shot.sprite.position.set(
+      this.playerSprite.position.x,
+      this.playerSprite.position.y,
+    );
+    this.stage.addChild(shot.sprite);
+  };
+
+  /** SHOTS STATES **/
+
+  manageShots = () => {
+    if (this.state.shots.length >= 1) {
+      this.state.shots.map((shot, index) => {
+        this.moveShot(shot, index);
+      });
+    }
+  };
+
+  moveShot = (shot, index) => {
+    const x = shot.sprite.position.x + (shot.diff.x * shot.ratio);
+    const y = shot.sprite.position.y + (shot.diff.y * shot.ratio);
+    if (!checkBoundaries({ x: x, y: y })) {
+      shot.sprite.position.set(x, y);
+    } else {
+      this.stage.removeChild(shot.sprite);
+      this.state.shots.splice(index, 1);
+    }
   };
 
   /** GAME UTILS **/
 
   handleKeyDown = (e) => {
+    event.preventDefault();
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       this.state.moveKeys[e.code] = true;
-      this.setMove();
     }
   };
 
   handleKeyUp = (e) => {
+    event.preventDefault();
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       this.state.moveKeys[e.code] = false;
-      if (checkMoveKeys(this.state.moveKeys)) {
-        this.setMain();
-      }
     }
   };
-
-  // keyboard = (keyCode) => {
-  //   const key = {};
-  //   key.code = keyCode;
-  //   key.isDown = false;
-  //   key.isUp = true;
-  //   key.press = undefined;
-  //   key.release = undefined;
-  //   //The `downHandler`
-  //   key.downHandler = (event) => {
-  //     if (event.keyCode === key.code) {
-  //       if (key.isUp && key.press) key.press();
-  //       key.isDown = true;
-  //       key.isUp = false;
-  //     }
-  //     event.preventDefault();
-  //   };
-
-  //   //The `upHandler`
-  //   key.upHandler = (event) => {
-  //     if (event.keyCode === key.code) {
-  //       if (key.isDown && key.release) key.release();
-  //       key.isDown = false;
-  //       key.isUp = true;
-  //     }
-  //     event.preventDefault();
-  //   };
-  //   return key;
-  // };
 
   lookAround = (diff) => {
     let finalAngle = 0;
