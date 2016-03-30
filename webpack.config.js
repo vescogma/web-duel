@@ -8,7 +8,7 @@ module.exports = {
   entry: './src/index.js',
   devtool: 'source-map',
   output: {
-    path: 'build',
+    path: 'dist',
     filename: 'bundle.js',
     publicPath: '/',
     sourceMapFilename: 'bundle.map',
@@ -25,7 +25,7 @@ module.exports = {
       {
         test: /\.(js)$/,
         exclude: /node_modules/,
-        loaders: ['react-hot', 'babel?presets[]=es2015,presets[]=react,presets=stage-0,plugins[]=transform-decorators-legacy'],
+        loaders: ['react-hot', 'babel?presets[]=es2015,presets[]=react,presets[]=stage-0,plugins[]=transform-decorators-legacy'],
       },
       {
         test: /\.json$/,

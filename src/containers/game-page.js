@@ -49,9 +49,11 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
+    // this.worker = new Worker('../worker.js');
   }
 
   componentDidMount() {
+    // this.worker.onmessage = this.handleWorkerMessage;
     window.addEventListener('resize', this.handleResize);
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
@@ -115,17 +117,20 @@ class GamePage extends Component {
       gameConstants.GAME_HEIGHT,
       renderOptions,
     );
-    this.stage = new PIXI.Container();
     this.interaction = this.renderer.plugins.interaction;
+    this.setupGame();
+    this.setupPlayer();
+    this.animate();
+  };
+
+  setupGame = () => {
+    this.stage = new PIXI.Container();
     this.stage.interactive = true;
     this.handleResize();
     this.refs.gameCanvas.appendChild(this.renderer.view);
-    this.setupPlayer();
-
     this.stage.mouseup = () => {
       this.shoot();
     };
-    this.animate();
   };
 
   setupPlayer = () => {
@@ -134,10 +139,19 @@ class GamePage extends Component {
     this.playerSprite = new PIXI.Sprite(playerTexture);
     this.playerSprite.anchor.set(0.5, 0.5);
     this.playerSprite.position.set(
-      Math.floor(gameConstants.GAME_WIDTH / 2),
-      Math.floor(gameConstants.GAME_HEIGHT / 2),
+      Math.floor(gameConstants.GAME_WIDTH / 4),
+      Math.floor(gameConstants.GAME_HEIGHT / 4),
     );
     this.stage.addChild(this.playerSprite);
+
+    this.enemySprite = new PIXI.Sprite(playerTexture);
+    this.enemySprite.anchor.set(0.5, 0.5);
+    this.enemySprite.scale.set(-1, 1);
+    this.enemySprite.position.set(
+      Math.floor(gameConstants.GAME_WIDTH * 3 / 4),
+      Math.floor(gameConstants.GAME_HEIGHT * 3 / 4),
+    );
+    this.stage.addChild(this.enemySprite);
   }
 
   /** GAME LOOP **/
@@ -232,17 +246,21 @@ class GamePage extends Component {
   /** GAME UTILS **/
 
   handleKeyDown = (e) => {
-    event.preventDefault();
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
+      event.preventDefault();
       this.state.moveKeys[e.code] = true;
     }
   };
 
   handleKeyUp = (e) => {
-    event.preventDefault();
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
+      event.preventDefault();
       this.state.moveKeys[e.code] = false;
     }
+  };
+
+  handleWorkerMessage = (e) => {
+    console.log(e);
   };
 
   lookAround = (diff) => {

@@ -30,7 +30,7 @@ export function checkBoundaries(newPosition) {
   if (newPosition.x < 0
     || newPosition.y < 0
     || newPosition.x > gameConstants.GAME_WIDTH
-    || newPosition.x > gameConstants.GAME_HEIGHT
+    || newPosition.y > gameConstants.GAME_HEIGHT
   ) {
     return true;
   }
