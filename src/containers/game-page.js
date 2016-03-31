@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import gameActions from '../actions/game';
 import gameConstants from '../constants/game';
+import io from 'socket.io-client';
 import PIXI from 'pixi.js';
 import {
   roundTo,
@@ -49,11 +50,14 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
-    // this.worker = new Worker('../worker.js');
+    this.socket = io.connect('http://localhost:8080');
   }
 
   componentDidMount() {
-    // this.worker.onmessage = this.handleWorkerMessage;
+    this.socket.on('news', data => {
+      console.log(data);
+      this.socket.emit('my other event', { my: 'data' });
+    });
     window.addEventListener('resize', this.handleResize);
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);

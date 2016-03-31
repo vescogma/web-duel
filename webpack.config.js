@@ -1,20 +1,37 @@
 var path = require('path');
 var webpack = require('webpack');
+var HtmlWebpackPlugin = require('html-webpack-plugin');
 var postcssImport = require('postcss-import');
 var postcssNext = require('postcss-cssnext');
 var autoprefixer =  require('autoprefixer');
 
 module.exports = {
-  entry: './src/index.js',
-  devtool: 'source-map',
+  entry: [
+    'webpack-hot-middleware/client?reload=true',
+    path.join(__dirname, './src/index.js'),
+  ],
+  devtool: 'eval-source-map',
   output: {
-    path: 'dist',
+    path: path.join(__dirname, 'dist'),
     filename: 'bundle.js',
     publicPath: '/',
     sourceMapFilename: 'bundle.map',
   },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/index.html',
+      inject: false,
+      filename: 'index.html'
+    }),
+    new webpack.optimize.OccurenceOrderPlugin(),
+    new webpack.HotModuleReplacementPlugin(),
+    new webpack.NoErrorsPlugin(),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('development')
+    }),
+  ],
   node: {
-    fs: 'empty'
+    fs: 'empty',
   },
   module: {
     loaders: [
