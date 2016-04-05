@@ -50,13 +50,12 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
-    this.socket = io.connect('http://localhost:8080');
+    this.socket = io.connect('http://localhost:3000');
   }
 
   componentDidMount() {
-    this.socket.on('news', data => {
+    this.socket.on('room', data => {
       console.log(data);
-      this.socket.emit('my other event', { my: 'data' });
     });
     window.addEventListener('resize', this.handleResize);
     window.addEventListener('keydown', this.handleKeyDown);
