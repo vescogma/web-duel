@@ -36,3 +36,18 @@ export function checkBoundaries(newPosition) {
   }
   return false;
 }
+
+export function lookAround(diff) {
+  let finalAngle = 0;
+  if (diff.x === 0) {
+    finalAngle = diff.y < 0 ? 0 : Math.PI / 2;
+  } else {
+    const angle = Math.atan(Math.abs(diff.y / diff.x));
+    if ((diff.x > 0 && diff.y <= 0) || (diff.x < 0 && diff.y <= 0)) {
+      finalAngle = (Math.PI / 2 - angle) * diff.x / Math.abs(diff.x);
+    } else {
+      finalAngle = (Math.PI / 2 + angle) * diff.x / Math.abs(diff.x);
+    }
+  }
+  return finalAngle;
+}

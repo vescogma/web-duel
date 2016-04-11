@@ -28,43 +28,72 @@ var server = app.listen(port, '0.0.0.0', function (err) {
 });
 
 var io = require('socket.io')(server);
-// var nsp = io.of('/my-namespace');
-// nsp.on('connection', function(socket){
-//   console.log('someone connected'):
-// });
-// nsp.emit('hi', 'everyone!');
 
-// server.listen(8080);
+//GAME STUFF
 
-var playerCount = 0;
+var players = {};
+var rooms = {};
 var roomCounter = 0;
-var rooms = [];
-var players = [];
 
 io.on('connection', function (socket) {
-  playerCount += 1;
-  io.on('disconnect', function () {
-    playerCount -= 1;
-  })
-  var roomIndex = rooms.findIndex(function (room) {
-    return room.playerCount < 2;
-  });
-  if (roomIndex === -1) {
-    rooms.push({
-      playerCount: 1,
-      players: [
-        { id: socket.client.id },
-      ],
-    })
-    roomIndex = 0;
-  } else {
-    rooms[roomIndex].players.push({ id: socket.client.id });
-    rooms[roomIndex].playerCount += 1;
-  }
-  players.push({
-    room: roomIndex,
+  players[socket.client.id] = {
     id: socket.client.id,
-  })
-  socket.emit('room', { message: 'joined room ' + roomIndex });
+  }
+  io.emit('player', {
+    client: socket.client.id,
+    status: 'connected',
+    count: io.engine.clientsCount,
+  });
+  joinRoom(socket.client.id, socket);
+  socket.on('disconnect', function () {
+    var id = this.client.id;
+    leaveRoom(id, this);
+    delete players[id];
+    io.emit('player', {
+      client: id,
+      status: 'disconnected',
+      count: io.engine.clientsCount,
+    });
+  });
 });
 
+function leaveRoom(id, socket) {
+  var room = players[id].room;
+  var index = rooms[room].players.findIndex(function (player) {
+    return player.id === id;
+  });
+  socket.leave(room);
+  rooms[room].players.splice(index, 1);
+  delete players[id].room;
+  io.to(room).emit('room', {
+    player: id,
+    action: 'left room ' + room,
+    count: rooms[room].players.length,
+  })
+}
+
+function joinRoom(playerID, socket) {
+  var chosen;
+  var available = Object.keys(rooms).findIndex(function (roomKey) {
+    return rooms[roomKey].players.length < 2;
+  })
+  if (available === -1) {
+    rooms[roomCounter] = {
+      players: [
+        { id: playerID },
+      ],
+    };
+    chosen = roomCounter;
+    roomCounter += 1;
+  } else {
+    rooms[available].players.push({ id: playerID });
+    chosen = available;
+  }
+  players[playerID].room = chosen;
+  socket.join(chosen);
+  io.to(chosen).emit('room', {
+    player: playerID,
+    action: 'joined room ' + chosen,
+    count: rooms[chosen].players.length,
+  })
+}

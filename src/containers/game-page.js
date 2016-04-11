@@ -50,23 +50,21 @@ class GamePage extends Component {
   }
 
   componentWillMount() {
-    this.socket = io.connect('http://localhost:3000');
+    // something ?
   }
 
   componentDidMount() {
-    this.socket.on('room', data => {
-      console.log(data);
-    });
-    window.addEventListener('resize', this.handleResize);
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
+    const socketOptions = {
+      'sync disconnect on unload': true
+    };
+    this.socket = io.connect('http://localhost:3000', socketOptions);
+    this.setupSocketEvents();
+    this.setupListenerEvents();
     this.loadResources();
   }
 
   componentWillUnmount() {
-    window.removeEventListener('resize', this.handleResize);
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
+    this.removeListenerEvents();
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -88,6 +86,31 @@ class GamePage extends Component {
       </div>
     );
   }
+
+  /** CLIENT EVENTS **/
+
+  setupSocketEvents = () => {
+    this.socket.on('player', data => {
+      console.log('client ' + data.client + ' ' + data.status);
+      console.log('total clients: ' + data.count);
+    });
+    this.socket.on('room', data => {
+      console.log('player ' + data.player + ' ' + data.action);
+      console.log('players in room: ' + data.count);
+    });
+  };
+
+  setupListenerEvents = () => {
+    window.addEventListener('resize', this.handleResize);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+  };
+
+  removeListenerEvents = () => {
+    window.removeEventListener('resize', this.handleResize);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+  };
 
   /** GAME LOADER/RESOURCES **/
 
@@ -246,7 +269,7 @@ class GamePage extends Component {
     }
   };
 
-  /** GAME UTILS **/
+  /** GAME HANDLERS **/
 
   handleKeyDown = (e) => {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
@@ -266,22 +289,10 @@ class GamePage extends Component {
     console.log(e);
   };
 
-  lookAround = (diff) => {
-    let finalAngle = 0;
-    if (diff.x === 0) {
-      finalAngle = diff.y < 0 ? 0 : Math.PI / 2;
-    } else {
-      const angle = Math.atan(Math.abs(diff.y / diff.x));
-      if ((diff.x > 0 && diff.y <= 0) || (diff.x < 0 && diff.y <= 0)) {
-        finalAngle = (Math.PI / 2 - angle) * diff.x / Math.abs(diff.x);
-      } else {
-        finalAngle = (Math.PI / 2 + angle) * diff.x / Math.abs(diff.x);
-      }
-    }
-    this.playerSprite.rotation = finalAngle;
-  };
-
   handleResize = () => {
+    if (this.stage === undefined) {
+      debugger;
+    }
     const scale = Math.min(
       window.innerWidth / gameConstants.GAME_WIDTH,
       (window.innerHeight) / gameConstants.GAME_HEIGHT,
