@@ -45,6 +45,11 @@ io.on('connection', function (socket) {
     count: io.engine.clientsCount,
   });
   joinRoom(socket.client.id, socket);
+  socket.on('data', function (data) {
+    if (data.shots.length > 0) {
+      console.log(data.shots);
+    }
+  });
   socket.on('disconnect', function () {
     var id = this.client.id;
     leaveRoom(id, this);

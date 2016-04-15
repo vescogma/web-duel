@@ -89,6 +89,18 @@ class GamePage extends Component {
 
   /** CLIENT EVENTS **/
 
+  setupListenerEvents = () => {
+    window.addEventListener('resize', this.handleResize);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+  };
+
+  removeListenerEvents = () => {
+    window.removeEventListener('resize', this.handleResize);
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+  };
+
   setupSocketEvents = () => {
     this.socket.on('player', data => {
       console.log('client ' + data.client + ' ' + data.status);
@@ -100,16 +112,24 @@ class GamePage extends Component {
     });
   };
 
-  setupListenerEvents = () => {
-    window.addEventListener('resize', this.handleResize);
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
-  };
-
-  removeListenerEvents = () => {
-    window.removeEventListener('resize', this.handleResize);
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
+  sendSocketData = () => {
+    const shots = this.state.shots.map(function (shot) {
+      return {
+        mouse: shot.mouse,
+        position: shot.position,
+        initial: shot.initial,
+        diff: shot.diff,
+        current: shot.current,
+        ratio: shot.ratio,
+        speed: shot.speed,
+      };
+    });
+    const position = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
+    const data = {
+      position: position,
+      shots: shots,
+    }
+    this.socket.emit('data', data);
   };
 
   /** GAME LOADER/RESOURCES **/
@@ -146,7 +166,7 @@ class GamePage extends Component {
     this.interaction = this.renderer.plugins.interaction;
     this.setupGame();
     this.setupPlayer();
-    this.animate();
+    this.gameLoop();
   };
 
   setupGame = () => {
@@ -182,14 +202,19 @@ class GamePage extends Component {
 
   /** GAME LOOP **/
 
-  animate = () => {
-    requestAnimationFrame(this.animate);
-    this.state.playerStateList[this.state.playerState]();
+  gameLoop = () => {
+    requestAnimationFrame(this.gameLoop);
+    this.managePlayers();
     this.manageShots();
+    this.sendSocketData();
     this.renderer.render(this.stage);
   };
 
   /** PLAYER STATES/ACTIONS **/
+
+  managePlayers = () => {
+    this.state.playerStateList[this.state.playerState]();
+  };
 
   main = () => {
     if (checkAnyKeyPressed(this.state.moveKeys)) {
@@ -219,32 +244,30 @@ class GamePage extends Component {
   };
 
   shoot = () => {
-    const mouse = this.interaction.eventData.data.getLocalPosition(this.stage);
-    const diff = {
-      x: mouse.x - this.playerSprite.position.x,
-      y: mouse.y - this.playerSprite.position.y,
-    }
+    const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const mouse = { x: mouseEvent.x, y: mouseEvent.y };
+    const initial = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
+    const diff = { x: mouse.x - initial.x, y: mouse.y - initial.y };
     const speed = 50;
     const ratio = Math.sqrt(speed * speed / ((diff.x * diff.x) + (diff.y * diff.y)));
-    this.setupShot(mouse, diff, ratio, speed);
+    this.setupShot(mouse, initial, diff, speed, ratio);
   };
 
-  setupShot = (mouse, diff, ratio, speed) => {
+  setupShot = (mouse, initial, diff, speed, ratio) => {
     const shotTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
     this.state.shots.push({
       sprite: new PIXI.Sprite(shotTexture),
       mouse: mouse,
+      initial: initial,
       diff: diff,
-      ratio: ratio,
+      current: initial,
       speed: speed,
+      ratio: ratio,
     });
     const shot = this.state.shots[this.state.shots.length - 1];
     shot.sprite.anchor.set(0.5, 0.5);
-    shot.sprite.position.set(
-      this.playerSprite.position.x,
-      this.playerSprite.position.y,
-    );
+    shot.sprite.position.set(this.playerSprite.position.x, this.playerSprite.position.y);
     this.stage.addChild(shot.sprite);
   };
 
@@ -263,6 +286,7 @@ class GamePage extends Component {
     const y = shot.sprite.position.y + (shot.diff.y * shot.ratio);
     if (!checkBoundaries({ x: x, y: y })) {
       shot.sprite.position.set(x, y);
+      shot.current = { x: x, y: y };
     } else {
       this.stage.removeChild(shot.sprite);
       this.state.shots.splice(index, 1);

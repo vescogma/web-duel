@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack-dev-server --content-base src/ --hot --inline --history-api-fallback --host 0.0.0.0",
-    "serve": "node-inspector --web-port=8082 & nodemon --debug server/server",
+    "serve": "node-inspector --web-port=8080 & nodemon --debug server/server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "vescogma",
