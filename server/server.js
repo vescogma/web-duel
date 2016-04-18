@@ -32,22 +32,30 @@ var io = require('socket.io')(server);
 //GAME STUFF
 
 var players = {};
+var sockets = {};
 var rooms = {};
 var roomCounter = 0;
 
 io.on('connection', function (socket) {
   players[socket.client.id] = {
     id: socket.client.id,
+    socket: socket,
   }
   io.emit('player', {
     client: socket.client.id,
     status: 'connected',
     count: io.engine.clientsCount,
   });
+  socket.emit('message', {
+    message: 'you are connected',
+  });
   joinRoom(socket.client.id, socket);
   socket.on('data', function (data) {
-    if (data.shots.length > 0) {
-      console.log(data.shots);
+    var socket = this;
+    var roomKey = players[socket.client.id].room;
+    var enemyID = findEnemy(socket.client.id, roomKey)
+    if (enemyID !== -1)  {
+      io.to('/#' + enemyID).emit('enemy', data);
     }
   });
   socket.on('disconnect', function () {
@@ -62,6 +70,13 @@ io.on('connection', function (socket) {
   });
 });
 
+function findEnemy(id, room) {
+  var enemyIndex = rooms[room].players.findIndex(function (player) {
+    return player.id !== id;
+  });
+  return enemyIndex === -1 ? -1 : rooms[room].players[enemyIndex].id;
+}
+
 function leaveRoom(id, socket) {
   var room = players[id].room;
   var index = rooms[room].players.findIndex(function (player) {
@@ -74,7 +89,7 @@ function leaveRoom(id, socket) {
     player: id,
     action: 'left room ' + room,
     count: rooms[room].players.length,
-  })
+  });
 }
 
 function joinRoom(playerID, socket) {

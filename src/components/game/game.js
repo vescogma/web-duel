@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
-import { connect } from 'react-redux';
-import gameActions from '../actions/game';
-import gameConstants from '../constants/game';
+import gameActions from '../../actions/game';
+import gameConstants from '../../constants/game';
 import io from 'socket.io-client';
 import PIXI from 'pixi.js';
 import {
@@ -10,22 +9,9 @@ import {
   checkAnyKeyPressed,
   checkMaxMovement,
   checkBoundaries,
-} from '../utils/game-utils';
+} from '../../utils/game-utils';
 
-function mapStateToProps(state) {
-  return {
-    gameState: state.game.gameState,
-  };
-}
-
-function mapDispatchToProps(dispatch) {
-  return {
-    setGameState: (size) => dispatch(gameActions.setGameState(size)),
-  };
-}
-
-@connect(mapStateToProps, mapDispatchToProps)
-class GamePage extends Component {
+class Game extends Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -49,10 +35,6 @@ class GamePage extends Component {
     };
   }
 
-  componentWillMount() {
-    // something ?
-  }
-
   componentDidMount() {
     const socketOptions = {
       'sync disconnect on unload': true
@@ -60,6 +42,7 @@ class GamePage extends Component {
     this.socket = io.connect('http://localhost:3000', socketOptions);
     this.setupSocketEvents();
     this.setupListenerEvents();
+    this.setupWorkerEvents();
     this.loadResources();
   }
 
@@ -69,10 +52,6 @@ class GamePage extends Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     return false;
-  }
-
-  componentWillReceiveProps(nextProps) {
-    // console.log('will receive props');
   }
 
   render() {
@@ -102,6 +81,9 @@ class GamePage extends Component {
   };
 
   setupSocketEvents = () => {
+    this.socket.on('message', data => {
+      console.log(data.message);
+    });
     this.socket.on('player', data => {
       console.log('client ' + data.client + ' ' + data.status);
       console.log('total clients: ' + data.count);
@@ -113,23 +95,38 @@ class GamePage extends Component {
   };
 
   sendSocketData = () => {
-    const shots = this.state.shots.map(function (shot) {
-      return {
-        mouse: shot.mouse,
-        position: shot.position,
-        initial: shot.initial,
-        diff: shot.diff,
-        current: shot.current,
-        ratio: shot.ratio,
-        speed: shot.speed,
-      };
+    const shots = this.state.shots.map(shot => {
+      const shotData = {};
+      Object.keys(shot).map(shotKey => {
+        if (shotKey !== 'sprite') {
+          shotData[shotKey] = shot[shotKey];
+        }
+        return shotKey;
+      })
+      return shotData;
     });
     const position = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
     const data = {
+      timestamp: performance.now(),
       position: position,
       shots: shots,
     }
     this.socket.emit('data', data);
+  };
+
+  setupWorkerEvents = () => {
+    this.worker = new Worker('../worker.js');
+    this.worker.onmessage = (event) => {
+      var data = JSON.parse(event.data);
+      this.handleWorkerPosition(data.player.position);
+    };
+    this.worker.postMessage(JSON.stringify({
+      action: 'onstart',
+      args: [
+        gameConstants.GAME_WIDTH,
+        gameConstants.GAME_HEIGHT,
+      ],
+    }));
   };
 
   /** GAME LOADER/RESOURCES **/
@@ -186,7 +183,7 @@ class GamePage extends Component {
     this.playerSprite.anchor.set(0.5, 0.5);
     this.playerSprite.position.set(
       Math.floor(gameConstants.GAME_WIDTH / 4),
-      Math.floor(gameConstants.GAME_HEIGHT / 4),
+      Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.playerSprite);
 
@@ -195,7 +192,7 @@ class GamePage extends Component {
     this.enemySprite.scale.set(-1, 1);
     this.enemySprite.position.set(
       Math.floor(gameConstants.GAME_WIDTH * 3 / 4),
-      Math.floor(gameConstants.GAME_HEIGHT * 3 / 4),
+      Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.enemySprite);
   }
@@ -204,9 +201,9 @@ class GamePage extends Component {
 
   gameLoop = () => {
     requestAnimationFrame(this.gameLoop);
-    this.managePlayers();
-    this.manageShots();
-    this.sendSocketData();
+    // this.managePlayers();
+    // this.manageShots();
+    // this.sendSocketData();
     this.renderer.render(this.stage);
   };
 
@@ -223,7 +220,7 @@ class GamePage extends Component {
   };
 
   move = () => {
-    const speed = 5;
+    const speed = 4;
     let offsetX = 0;
     let offsetY = 0;
     if (this.state.moveKeys.ArrowRight || this.state.moveKeys.ArrowLeft) {
@@ -234,8 +231,8 @@ class GamePage extends Component {
     }
     if (offsetX || offsetY) {
       this.playerSprite.position.set(
-        checkMaxMovement(this.playerSprite.position.x, offsetX, 'x'),
-        checkMaxMovement(this.playerSprite.position.y, offsetY, 'y'),
+        checkMaxMovement(this.playerSprite.position.x, offsetX, gameConstants.GAME_WIDTH),
+        checkMaxMovement(this.playerSprite.position.y, offsetY, gameConstants.GAME_HEIGHT),
       );
     }
     if (!checkAnyKeyPressed(this.state.moveKeys)) {
@@ -259,6 +256,7 @@ class GamePage extends Component {
     this.state.shots.push({
       sprite: new PIXI.Sprite(shotTexture),
       mouse: mouse,
+      timestamp: performance.now(),
       initial: initial,
       diff: diff,
       current: initial,
@@ -295,10 +293,20 @@ class GamePage extends Component {
 
   /** GAME HANDLERS **/
 
+  handleWorkerPosition = (playerPosition) => {
+    this.playerSprite.position.set(playerPosition.x, playerPosition.y);
+  };
+
   handleKeyDown = (e) => {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       event.preventDefault();
       this.state.moveKeys[e.code] = true;
+      this.worker.postMessage(JSON.stringify({
+        action: 'onKeyDown',
+        args: [
+          e.code,
+        ],
+      }));
     }
   };
 
@@ -306,17 +314,16 @@ class GamePage extends Component {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       event.preventDefault();
       this.state.moveKeys[e.code] = false;
+      this.worker.postMessage(JSON.stringify({
+        action: 'onKeyUp',
+        args: [
+          e.code,
+        ],
+      }));
     }
-  };
-
-  handleWorkerMessage = (e) => {
-    console.log(e);
   };
 
   handleResize = () => {
-    if (this.stage === undefined) {
-      debugger;
-    }
     const scale = Math.min(
       window.innerWidth / gameConstants.GAME_WIDTH,
       (window.innerHeight) / gameConstants.GAME_HEIGHT,
@@ -334,4 +341,4 @@ class GamePage extends Component {
   };
 }
 
-export default GamePage;
+export default Game;
