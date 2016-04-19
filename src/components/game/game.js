@@ -14,24 +14,11 @@ import {
 class Game extends Component {
   constructor(props) {
     super(props);
-    this.state = {
+    this.game = {
       scale: 1,
-      moveKeys: {
-        ArrowRight: false,
-        ArrowLeft: false,
-        ArrowUp: false,
-        ArrowDown: false,
-      },
+      moveKeys: gameConstants.MOVE_NAMES,
       playerState: 'main',
-      playerStateList: {
-        main: this.main,
-        move: this.move,
-      },
       shots: [],
-      stateList: {
-        main: this.main,
-        move: this.move,
-      }
     };
   }
 
@@ -41,8 +28,8 @@ class Game extends Component {
     };
     this.socket = io.connect('http://localhost:3000', socketOptions);
     this.setupSocketEvents();
-    this.setupListenerEvents();
     this.setupWorkerEvents();
+    this.setupListenerEvents();
     this.loadResources();
   }
 
@@ -95,7 +82,7 @@ class Game extends Component {
   };
 
   sendSocketData = () => {
-    const shots = this.state.shots.map(shot => {
+    const shots = this.game.shots.map(shot => {
       const shotData = {};
       Object.keys(shot).map(shotKey => {
         if (shotKey !== 'sprite') {
@@ -161,12 +148,12 @@ class Game extends Component {
       renderOptions,
     );
     this.interaction = this.renderer.plugins.interaction;
-    this.setupGame();
+    this.setupStage();
     this.setupPlayer();
-    this.gameLoop();
+    this.setupGame();
   };
 
-  setupGame = () => {
+  setupStage = () => {
     this.stage = new PIXI.Container();
     this.stage.interactive = true;
     this.handleResize();
@@ -179,6 +166,7 @@ class Game extends Component {
   setupPlayer = () => {
     const playerTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
+    // player
     this.playerSprite = new PIXI.Sprite(playerTexture);
     this.playerSprite.anchor.set(0.5, 0.5);
     this.playerSprite.position.set(
@@ -186,7 +174,7 @@ class Game extends Component {
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.playerSprite);
-
+    // enemy
     this.enemySprite = new PIXI.Sprite(playerTexture);
     this.enemySprite.anchor.set(0.5, 0.5);
     this.enemySprite.scale.set(-1, 1);
@@ -195,27 +183,56 @@ class Game extends Component {
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.enemySprite);
-  }
+  };
+
+  setupGame = () => {
+    this.lastTick = performance.now();
+    this.lastRender = this.lastTick;
+    this.tickLength = 1000 / 60;
+    this.gameLoop(performance.now());
+  };
 
   /** GAME LOOP **/
 
-  gameLoop = () => {
+  gameLoop = (timestamp) => {
     requestAnimationFrame(this.gameLoop);
-    // this.managePlayers();
-    // this.manageShots();
-    // this.sendSocketData();
+    const nextTick = this.lastTick + this.tickLength;
+    this.frameCatch(nextTick, this.lastTick, this.tickLength, timestamp);
+    // this.update();
+    this.draw();
+    this.lastRender = timestamp;
+  };
+
+  frameCatch = (nextTick, timestamp) => {
+    let ticks = 0;
+    if (timestamp > nextTick) {
+      ticks = Math.floor((timestamp - this.lastTick) / this.tickLength);
+      console.log(ticks);
+    }
+    while (ticks >= 0){
+      this.lastTick += this.tickLength;
+      this.update();
+      ticks--;
+    }
+  };
+
+  draw = () => {
     this.renderer.render(this.stage);
+  };
+
+  update = () => {
+    this.worker.postMessage(JSON.stringify({ action: 'onsend' }));
+    // // this.managePlayers();
+    // // this.manageShots();
+    // // this.sendSocketData();
+    this[this.game.playerState]();
   };
 
   /** PLAYER STATES/ACTIONS **/
 
-  managePlayers = () => {
-    this.state.playerStateList[this.state.playerState]();
-  };
-
   main = () => {
-    if (checkAnyKeyPressed(this.state.moveKeys)) {
-      this.state.playerState = 'move';
+    if (checkAnyKeyPressed(this.game.moveKeys)) {
+      this.game.playerState = 'move';
     }
   };
 
@@ -223,11 +240,11 @@ class Game extends Component {
     const speed = 4;
     let offsetX = 0;
     let offsetY = 0;
-    if (this.state.moveKeys.ArrowRight || this.state.moveKeys.ArrowLeft) {
-      offsetX = this.state.moveKeys.ArrowRight ? speed : -speed;
+    if (this.game.moveKeys.ArrowRight || this.game.moveKeys.ArrowLeft) {
+      offsetX = this.game.moveKeys.ArrowRight ? speed : -speed;
     }
-    if (this.state.moveKeys.ArrowUp || this.state.moveKeys.ArrowDown) {
-      offsetY = this.state.moveKeys.ArrowUp ? -speed : speed;
+    if (this.game.moveKeys.ArrowUp || this.game.moveKeys.ArrowDown) {
+      offsetY = this.game.moveKeys.ArrowUp ? -speed : speed;
     }
     if (offsetX || offsetY) {
       this.playerSprite.position.set(
@@ -235,8 +252,8 @@ class Game extends Component {
         checkMaxMovement(this.playerSprite.position.y, offsetY, gameConstants.GAME_HEIGHT),
       );
     }
-    if (!checkAnyKeyPressed(this.state.moveKeys)) {
-      this.state.playerState = 'main';
+    if (!checkAnyKeyPressed(this.game.moveKeys)) {
+      this.game.playerState = 'main';
     }
   };
 
@@ -253,7 +270,7 @@ class Game extends Component {
   setupShot = (mouse, initial, diff, speed, ratio) => {
     const shotTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
-    this.state.shots.push({
+    this.game.shots.push({
       sprite: new PIXI.Sprite(shotTexture),
       mouse: mouse,
       timestamp: performance.now(),
@@ -263,7 +280,7 @@ class Game extends Component {
       speed: speed,
       ratio: ratio,
     });
-    const shot = this.state.shots[this.state.shots.length - 1];
+    const shot = this.game.shots[this.game.shots.length - 1];
     shot.sprite.anchor.set(0.5, 0.5);
     shot.sprite.position.set(this.playerSprite.position.x, this.playerSprite.position.y);
     this.stage.addChild(shot.sprite);
@@ -272,8 +289,8 @@ class Game extends Component {
   /** SHOTS STATES **/
 
   manageShots = () => {
-    if (this.state.shots.length >= 1) {
-      this.state.shots.map((shot, index) => {
+    if (this.game.shots.length >= 1) {
+      this.game.shots.map((shot, index) => {
         this.moveShot(shot, index);
       });
     }
@@ -287,7 +304,7 @@ class Game extends Component {
       shot.current = { x: x, y: y };
     } else {
       this.stage.removeChild(shot.sprite);
-      this.state.shots.splice(index, 1);
+      this.game.shots.splice(index, 1);
     }
   };
 
@@ -300,7 +317,7 @@ class Game extends Component {
   handleKeyDown = (e) => {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       event.preventDefault();
-      this.state.moveKeys[e.code] = true;
+      this.game.moveKeys[e.code] = true;
       this.worker.postMessage(JSON.stringify({
         action: 'onKeyDown',
         args: [
@@ -313,7 +330,7 @@ class Game extends Component {
   handleKeyUp = (e) => {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       event.preventDefault();
-      this.state.moveKeys[e.code] = false;
+      this.game.moveKeys[e.code] = false;
       this.worker.postMessage(JSON.stringify({
         action: 'onKeyUp',
         args: [
