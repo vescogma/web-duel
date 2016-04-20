@@ -15,8 +15,7 @@ export function checkAnyKeyPressed(moveKeys) {
   }, 0);
 };
 
-export function checkMaxMovement(position, offset, type) {
-  const max = type === 'x' ? gameConstants.GAME_WIDTH : gameConstants.GAME_HEIGHT;
+export function checkMaxMovement(position, offset, max) {
   if (position + offset < 0) {
     return 0; 
   }
