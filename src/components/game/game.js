@@ -26,8 +26,8 @@ class Game extends Component {
     const socketOptions = {
       'sync disconnect on unload': true
     };
-    this.socket = io.connect('http://localhost:3000', socketOptions);
-    this.setupSocketEvents();
+    // this.socket = io.connect('http://localhost:3000', socketOptions);
+    // this.setupSocketEvents();
     this.setupWorkerEvents();
     this.setupListenerEvents();
     this.loadResources();
@@ -53,7 +53,7 @@ class Game extends Component {
     );
   }
 
-  /** CLIENT EVENTS **/
+  /** LISTENER EVENTS **/
 
   setupListenerEvents = () => {
     window.addEventListener('resize', this.handleResize);
@@ -66,6 +66,8 @@ class Game extends Component {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
   };
+
+  /** SOCKET EVENTS **/
 
   setupSocketEvents = () => {
     this.socket.on('message', data => {
@@ -82,38 +84,44 @@ class Game extends Component {
   };
 
   sendSocketData = () => {
-    const shots = this.game.shots.map(shot => {
-      const shotData = {};
-      Object.keys(shot).map(shotKey => {
-        if (shotKey !== 'sprite') {
-          shotData[shotKey] = shot[shotKey];
-        }
-        return shotKey;
-      })
-      return shotData;
-    });
+    // const shots = this.game.shots.map(shot => {
+    //   const shotData = {};
+    //   Object.keys(shot).map(shotKey => {
+    //     if (shotKey !== 'sprite') {
+    //       shotData[shotKey] = shot[shotKey];
+    //     }
+    //     return shotKey;
+    //   })
+    //   return shotData;
+    // });
     const position = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
     const data = {
       timestamp: performance.now(),
       position: position,
-      shots: shots,
+      // shots: shots,
     }
     this.socket.emit('data', data);
   };
 
+  /** WORKER EVENTS **/
+
   setupWorkerEvents = () => {
     this.worker = new Worker('../worker.js');
     this.worker.onmessage = (event) => {
-      var data = JSON.parse(event.data);
-      this.handleWorkerPosition(data.player.position);
+      this.handleWorkerPosition(event.data.player.position);
     };
-    this.worker.postMessage(JSON.stringify({
-      action: 'onstart',
-      args: [
-        gameConstants.GAME_WIDTH,
-        gameConstants.GAME_HEIGHT,
-      ],
-    }));
+    this.messageWorker('onstart', [
+      gameConstants.GAME_WIDTH,
+      gameConstants.GAME_HEIGHT,
+    ]);
+  };
+
+  messageWorker = (action, options) => {
+    var data = { action: action }
+    if (options) {
+      data.args = options;
+    }
+    this.worker.postMessage(data);
   };
 
   /** GAME LOADER/RESOURCES **/
@@ -198,7 +206,6 @@ class Game extends Component {
     requestAnimationFrame(this.gameLoop);
     const nextTick = this.lastTick + this.tickLength;
     this.frameCatch(nextTick, this.lastTick, this.tickLength, timestamp);
-    // this.update();
     this.draw();
     this.lastRender = timestamp;
   };
@@ -221,41 +228,13 @@ class Game extends Component {
   };
 
   update = () => {
-    this.worker.postMessage(JSON.stringify({ action: 'onsend' }));
+    this.messageWorker('onsend');
     // // this.managePlayers();
     // // this.manageShots();
     // // this.sendSocketData();
-    this[this.game.playerState]();
   };
 
   /** PLAYER STATES/ACTIONS **/
-
-  main = () => {
-    if (checkAnyKeyPressed(this.game.moveKeys)) {
-      this.game.playerState = 'move';
-    }
-  };
-
-  move = () => {
-    const speed = 4;
-    let offsetX = 0;
-    let offsetY = 0;
-    if (this.game.moveKeys.ArrowRight || this.game.moveKeys.ArrowLeft) {
-      offsetX = this.game.moveKeys.ArrowRight ? speed : -speed;
-    }
-    if (this.game.moveKeys.ArrowUp || this.game.moveKeys.ArrowDown) {
-      offsetY = this.game.moveKeys.ArrowUp ? -speed : speed;
-    }
-    if (offsetX || offsetY) {
-      this.playerSprite.position.set(
-        checkMaxMovement(this.playerSprite.position.x, offsetX, gameConstants.GAME_WIDTH),
-        checkMaxMovement(this.playerSprite.position.y, offsetY, gameConstants.GAME_HEIGHT),
-      );
-    }
-    if (!checkAnyKeyPressed(this.game.moveKeys)) {
-      this.game.playerState = 'main';
-    }
-  };
 
   shoot = () => {
     const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
@@ -317,44 +296,31 @@ class Game extends Component {
   handleKeyDown = (e) => {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       event.preventDefault();
-      this.game.moveKeys[e.code] = true;
-      this.worker.postMessage(JSON.stringify({
-        action: 'onKeyDown',
-        args: [
-          e.code,
-        ],
-      }));
+      this.messageWorker('onKeyDown', [e.code])
     }
   };
 
   handleKeyUp = (e) => {
     if (gameConstants.MOVE_KEYS[e.keyCode]) {
       event.preventDefault();
-      this.game.moveKeys[e.code] = false;
-      this.worker.postMessage(JSON.stringify({
-        action: 'onKeyUp',
-        args: [
-          e.code,
-        ],
-      }));
+      this.messageWorker('onKeyUp', [e.code])
     }
   };
 
   handleResize = () => {
+    const width = gameConstants.GAME_WIDTH;
+    const height = gameConstants.GAME_HEIGHT;
     const scale = Math.min(
-      window.innerWidth / gameConstants.GAME_WIDTH,
-      (window.innerHeight) / gameConstants.GAME_HEIGHT,
+      window.innerWidth / width,
+      window.innerHeight / height,
     );
-    this.stage.hitArea = new PIXI.Rectangle(0, 0,
-      gameConstants.GAME_WIDTH,
-      gameConstants.GAME_HEIGHT,
-    );
+    this.stage.hitArea = new PIXI.Rectangle(0, 0, width, height);
     this.stage.scale.set(scale);
+    this.game.scale = scale;
     this.renderer.resize(
-      Math.ceil(gameConstants.GAME_WIDTH * scale),
-      Math.ceil(gameConstants.GAME_HEIGHT * scale),
+      Math.ceil(width * scale),
+      Math.ceil(height * scale),
     );
-    this.setState({ scale: scale });
   };
 }
 

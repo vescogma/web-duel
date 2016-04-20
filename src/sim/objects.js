@@ -35,8 +35,18 @@ function checkMaxMovement(position, offset, max) {
   return position + offset;
 }
 
+function findMovementOffset(speed, keys, key1, key2, last) {
+  if (keys[key1].status || keys[key2].status) {
+    if (keys[key1].status && keys[key2].status) {
+      return keys[keys[last]].sign * speed;
+    }
+    return (keys[key1].status ? keys[key1].sign : keys[key2].sign) * speed;
+  }
+  return 0;
+}
+
 function checkAnyKeyPressed(moveKeys) {
   return Object.keys(moveKeys).reduce((prev, next) => {
-    return prev || moveKeys[next];
+    return prev || moveKeys[next].status;
   }, 0);
-};
+}

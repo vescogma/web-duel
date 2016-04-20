@@ -1,4 +1,5 @@
 importScripts('./sim/objects.js');
+importScripts('./assets/scripts/socket.io.js');
 
 class Worker {
   onstart(width, height) {
@@ -13,6 +14,8 @@ class Worker {
     this.playerState = 'main';
     this.player = new Player(width / 4, height / 2);
     this.enemy = new Enemy(width * 3 / 4, height / 2);
+    this.throttle = 2;
+    this.counter = 0;
     setInterval(this.simulation, 1000 / 120);
   }
 
@@ -25,11 +28,16 @@ class Worker {
         },
       },
     };
-    postMessage(JSON.stringify(data));
+    postMessage(data);
   }
 
   simulation() {
     worker[worker.playerState]();
+    if (this.counter % this.throttle === 0) {
+      sendSocketData();
+      this.counter = 0;
+    }
+    this.counter++;
   }
 
   main() {
@@ -40,23 +48,8 @@ class Worker {
 
   move() {
     const speed = 2;
-    const position = {};
-    let offsetX = 0;
-    let offsetY = 0;
-    if (this.moveKeys.KeyD.status || this.moveKeys.KeyA.status) {
-      if (this.moveKeys.KeyD.status && this.moveKeys.KeyA.status) {
-        offsetX = this.moveKeys[this.moveKeys.lastX].sign * speed;
-      } else {
-        offsetX = this.moveKeys.KeyD.status ? speed : -speed;
-      }
-    }
-    if (this.moveKeys.KeyW.status || this.moveKeys.KeyS.status) {
-      if (this.moveKeys.KeyW.status && this.moveKeys.KeyS.status) {
-        offsetY = this.moveKeys[this.moveKeys.lastY].sign * speed;
-      } else {
-        offsetY = this.moveKeys.KeyS.status ? speed : -speed;
-      }
-    }
+    let offsetX = findMovementOffset(speed, this.moveKeys, 'KeyD', 'KeyA', 'lastX');
+    let offsetY = findMovementOffset(speed, this.moveKeys, 'KeyW', 'KeyS', 'lastY');
     if (offsetX || offsetY) {
       this.player.position.x = checkMaxMovement(this.player.position.x, offsetX, this.width);
       this.player.position.y = checkMaxMovement(this.player.position.y, offsetY, this.height);
@@ -78,12 +71,37 @@ class Worker {
   onKeyUp(key) {
     this.moveKeys[key].status = false;
   }
-
 }
 
 const worker = new Worker();
-
+const socket = io.connect('http://localhost:3000');
 onmessage = (event) => {
-  var data = JSON.parse(event.data);
-  worker[data.action].apply(worker, data.args ? data.args : null);
+  worker[event.data.action].apply(worker, event.data.args ? event.data.args : null);
+}
+setupSocket();
+
+function setupSocket() {
+  socket.on('message', data => {
+    console.log(data.message);
+  });
+  socket.on('player', data => {
+    console.log('client ' + data.client + ' ' + data.status);
+    console.log('total clients: ' + data.count);
+  });
+  socket.on('room', data => {
+    console.log('player ' + data.player + ' ' + data.action);
+    console.log('players in room: ' + data.count);
+  });
+}
+
+function sendSocketData() {
+  const data = {
+    player: {
+      position: {
+        x: this.player.position.x,
+        y: this.player.position.y,
+      },
+    },
+  };
+  socket.emit('data', data);
 }
