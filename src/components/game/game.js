@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import gameActions from '../../actions/game';
 import gameConstants from '../../constants/game';
-import io from 'socket.io-client';
 import PIXI from 'pixi.js';
 import {
   roundTo,
@@ -23,11 +22,6 @@ class Game extends Component {
   }
 
   componentDidMount() {
-    const socketOptions = {
-      'sync disconnect on unload': true
-    };
-    // this.socket = io.connect('http://localhost:3000', socketOptions);
-    // this.setupSocketEvents();
     this.setupWorkerEvents();
     this.setupListenerEvents();
     this.loadResources();
@@ -67,48 +61,12 @@ class Game extends Component {
     window.addEventListener('keyup', this.handleKeyUp);
   };
 
-  /** SOCKET EVENTS **/
-
-  setupSocketEvents = () => {
-    this.socket.on('message', data => {
-      console.log(data.message);
-    });
-    this.socket.on('player', data => {
-      console.log('client ' + data.client + ' ' + data.status);
-      console.log('total clients: ' + data.count);
-    });
-    this.socket.on('room', data => {
-      console.log('player ' + data.player + ' ' + data.action);
-      console.log('players in room: ' + data.count);
-    });
-  };
-
-  sendSocketData = () => {
-    // const shots = this.game.shots.map(shot => {
-    //   const shotData = {};
-    //   Object.keys(shot).map(shotKey => {
-    //     if (shotKey !== 'sprite') {
-    //       shotData[shotKey] = shot[shotKey];
-    //     }
-    //     return shotKey;
-    //   })
-    //   return shotData;
-    // });
-    const position = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
-    const data = {
-      timestamp: performance.now(),
-      position: position,
-      // shots: shots,
-    }
-    this.socket.emit('data', data);
-  };
-
   /** WORKER EVENTS **/
 
   setupWorkerEvents = () => {
-    this.worker = new Worker('../worker.js');
+    this.worker = new Worker('../worker/index.js');
     this.worker.onmessage = (event) => {
-      this.handleWorkerPosition(event.data.player.position);
+      this.handleWorker(event.data);
     };
     this.messageWorker('onstart', [
       gameConstants.GAME_WIDTH,
@@ -231,7 +189,6 @@ class Game extends Component {
     this.messageWorker('onsend');
     // // this.managePlayers();
     // // this.manageShots();
-    // // this.sendSocketData();
   };
 
   /** PLAYER STATES/ACTIONS **/
@@ -289,8 +246,11 @@ class Game extends Component {
 
   /** GAME HANDLERS **/
 
-  handleWorkerPosition = (playerPosition) => {
+  handleWorker = (data) => {
+    const playerPosition = data.player.position;
+    const enemyPosition = data.enemy.position;
     this.playerSprite.position.set(playerPosition.x, playerPosition.y);
+    this.enemySprite.position.set(enemyPosition.x, enemyPosition.y);
   };
 
   handleKeyDown = (e) => {
