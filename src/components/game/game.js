@@ -114,8 +114,12 @@ class Game extends Component {
       renderOptions,
     );
     this.interaction = this.renderer.plugins.interaction;
+    this.interaction.frequency = 30;
     this.setupStage();
+    this.setupCursor();
+    this.setupListeners();
     this.setupPlayer();
+    this.setupEnemy();
     this.setupGame();
   };
 
@@ -124,6 +128,26 @@ class Game extends Component {
     this.stage.interactive = true;
     this.handleResize();
     this.refs.gameCanvas.appendChild(this.renderer.view);
+  };
+
+  setupCursor = () => {
+    this.cursor = new PIXI.Graphics();
+    this.cursor.moveTo(10, 10);
+    this.cursor.lineStyle(2, 0xFF5126, 0.8);
+    this.cursor.beginFill(0x000000, 0);
+    this.cursor.drawCircle(0, 0, 20);
+    this.cursor.endFill();
+    this.cursor.lineStyle(4, 0xFF5126, 0.8);
+    this.cursor.beginFill(0x000000, 0);
+    this.cursor.drawCircle(0, 0, 10);
+    this.cursor.endFill();
+    this.stage.addChild(this.cursor);
+  };
+
+  setupListeners = () => {
+    this.stage.mousemove = () => {
+      this.moveCursor();
+    };
     this.stage.mouseup = () => {
       this.shoot();
     };
@@ -132,7 +156,6 @@ class Game extends Component {
   setupPlayer = () => {
     const playerTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
-    // player
     this.playerSprite = new PIXI.Sprite(playerTexture);
     this.playerSprite.anchor.set(0.5, 0.5);
     this.playerSprite.position.set(
@@ -140,8 +163,12 @@ class Game extends Component {
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
     this.stage.addChild(this.playerSprite);
-    // enemy
-    this.enemySprite = new PIXI.Sprite(playerTexture);
+  };
+
+  setupEnemy = () => {
+    const enemyTexture = window.devicePixelRatio >= 2 ?
+      this.resources.player128.texture : this.resources.player64.texture;
+    this.enemySprite = new PIXI.Sprite(enemyTexture);
     this.enemySprite.anchor.set(0.5, 0.5);
     this.enemySprite.scale.set(-1, 1);
     this.enemySprite.position.set(
@@ -192,6 +219,12 @@ class Game extends Component {
   };
 
   /** PLAYER STATES/ACTIONS **/
+
+  moveCursor = () => {
+    const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const mouse = { x: mouseEvent.x, y: mouseEvent.y };
+    this.cursor.position.set(mouse.x, mouse.y);
+  };
 
   shoot = () => {
     const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
