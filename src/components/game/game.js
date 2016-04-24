@@ -149,7 +149,7 @@ class Game extends Component {
       this.moveCursor();
     };
     this.stage.mouseup = () => {
-      this.shoot();
+      this.handleShot();
     };
   };
 
@@ -196,7 +196,7 @@ class Game extends Component {
     requestAnimationFrame(this.gameLoop);
     const nextTick = this.lastTick + this.tickLength;
     this.frameCatch(nextTick, this.lastTick, this.tickLength, timestamp);
-    this.draw();
+    this.renderer.render(this.stage);
     this.lastRender = timestamp;
   };
 
@@ -207,17 +207,9 @@ class Game extends Component {
     }
     while (ticks >= 0){
       this.lastTick += this.tickLength;
-      this.update();
+      this.messageWorker('onsend');
       ticks--;
     }
-  };
-
-  draw = () => {
-    this.renderer.render(this.stage);
-  };
-
-  update = () => {
-    this.messageWorker('onsend');
   };
 
   moveCursor = () => {
@@ -226,42 +218,21 @@ class Game extends Component {
     this.cursor.position.set(mouse.x, mouse.y);
   };
 
-  /** SHOT HANDLERS **/
-
-  shoot = () => {
-    const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
-    const mouse = { x: mouseEvent.x, y: mouseEvent.y };
-    const speed = 10;
-    this.messageWorker('shoot', [mouse, speed]);
-  };
-
   /** GAME HANDLERS **/
 
   handleWorker = (data) => {
-    const shotsToRemove = [];
-    this.player.shots.map((shot, index) => {
-      const workerIndex = data.player.shots.findIndex(workerShot => {
-        return workerShot.timestamp === shot.timestamp;
-      });
-      if (workerIndex !== -1) {
-        shot.current = data.player.shots[workerIndex].current;
-        shot.sprite.position.set(shot.current.x, shot.current.y);
-      } else {
-        shotsToRemove.push(index);
-      }
-      return shot;
-    });
+    this.manageShots(data);
+    this.managePositions(data);
+  };
+
+  manageShots = (data) => {
+    const shotsToRemove = getShotsToRemove(this.player.shots, data.player.shots);
     shotsToRemove.reverse().map(shotIndex => {
       this.stage.removeChild(this.player.shots[shotIndex].sprite);
       this.player.shots.splice(shotIndex, 1);
       return shotIndex;
     });
-    const shotsToAdd = data.player.shots.filter(shot => {
-      const clientIndex = this.player.shots.findIndex(clientShot => {
-        return clientShot.timestamp === shot.timestamp;
-      });
-      return clientIndex === -1;
-    });
+    const shotsToAdd = getShotsToAdd(this.player.shots, data.player.shots);
     shotsToAdd.map(shot => {
       const shotTexture = window.devicePixelRatio >= 2 ?
         this.resources.player128.texture : this.resources.player64.texture;
@@ -270,10 +241,19 @@ class Game extends Component {
       shot.sprite.position.set(shot.current.x, shot.current.y);
       this.stage.addChild(shot.sprite);
     });
-    // add logic
     this.player.shots = this.player.shots.concat(shotsToAdd);
+  };
+
+  managePositions = (data) => {
     this.player.sprite.position.set(data.player.position.x, data.player.position.y);
     this.enemy.sprite.position.set(data.enemy.position.x, data.enemy.position.y);
+  };
+
+  handleShot = () => {
+    const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const mouse = { x: mouseEvent.x, y: mouseEvent.y };
+    const speed = 10;
+    this.messageWorker('shoot', [mouse, speed]);
   };
 
   handleKeyDown = (e) => {
