@@ -36,6 +36,32 @@ export function checkBoundaries(newPosition) {
   return false;
 }
 
+export function getShotsToRemove(playerData, workerData) {
+  const shotsToRemove = [];
+  playerData.map((shot, index) => {
+    const workerIndex = workerData.findIndex(workerShot => {
+      return workerShot.timestamp === shot.timestamp;
+    });
+    if (workerIndex !== -1) {
+      shot.current = workerData[workerIndex].current;
+      shot.sprite.position.set(shot.current.x, shot.current.y);
+    } else {
+      shotsToRemove.push(index);
+    }
+    return shot;
+  });
+  return shotsToRemove;
+}
+
+export function getShotsToAdd(playerData, workerData) {
+  return workerData.filter(shot => {
+    const clientIndex = playerData.findIndex(clientShot => {
+      return clientShot.timestamp === shot.timestamp;
+    });
+    return clientIndex === -1;
+  });
+}
+
 export function lookAround(diff) {
   let finalAngle = 0;
   if (diff.x === 0) {
