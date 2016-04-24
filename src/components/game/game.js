@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import gameActions from '../../actions/game';
 import gameConstants from '../../constants/game';
-import io from 'socket.io-client';
 import PIXI from 'pixi.js';
 import {
   roundTo,
@@ -17,17 +16,16 @@ class Game extends Component {
     this.game = {
       scale: 1,
       moveKeys: gameConstants.MOVE_NAMES,
-      playerState: 'main',
+    };
+    this.player = {
+      shots: [],
+    };
+    this.enemy = {
       shots: [],
     };
   }
 
   componentDidMount() {
-    const socketOptions = {
-      'sync disconnect on unload': true
-    };
-    // this.socket = io.connect('http://localhost:3000', socketOptions);
-    // this.setupSocketEvents();
     this.setupWorkerEvents();
     this.setupListenerEvents();
     this.loadResources();
@@ -67,53 +65,12 @@ class Game extends Component {
     window.addEventListener('keyup', this.handleKeyUp);
   };
 
-  /** SOCKET EVENTS **/
-
-  setupSocketEvents = () => {
-    this.socket.on('message', data => {
-      console.log(data.message);
-    });
-    this.socket.on('player', data => {
-      console.log('client ' + data.client + ' ' + data.status);
-      console.log('total clients: ' + data.count);
-    });
-    this.socket.on('room', data => {
-      console.log('player ' + data.player + ' ' + data.action);
-      console.log('players in room: ' + data.count);
-    });
-  };
-
-  sendSocketData = () => {
-    // const shots = this.game.shots.map(shot => {
-    //   const shotData = {};
-    //   Object.keys(shot).map(shotKey => {
-    //     if (shotKey !== 'sprite') {
-    //       shotData[shotKey] = shot[shotKey];
-    //     }
-    //     return shotKey;
-    //   })
-    //   return shotData;
-    // });
-    const position = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
-    const data = {
-      timestamp: performance.now(),
-      position: position,
-      // shots: shots,
-    }
-    this.socket.emit('data', data);
-  };
-
   /** WORKER EVENTS **/
 
   setupWorkerEvents = () => {
-    this.worker = new Worker('../worker.js');
-    this.worker.onmessage = (event) => {
-      this.handleWorkerPosition(event.data.player.position);
-    };
-    this.messageWorker('onstart', [
-      gameConstants.GAME_WIDTH,
-      gameConstants.GAME_HEIGHT,
-    ]);
+    this.worker = new Worker('../worker/index.js');
+    this.worker.onmessage = event => this.handleWorker(event.data);
+    this.messageWorker('onstart', [gameConstants.GAME_WIDTH, gameConstants.GAME_HEIGHT]);
   };
 
   messageWorker = (action, options) => {
@@ -156,8 +113,13 @@ class Game extends Component {
       renderOptions,
     );
     this.interaction = this.renderer.plugins.interaction;
+    this.interaction.interactionFrequency = 30;
     this.setupStage();
+    this.setupCursor();
+    this.setupListeners();
+    this.setupShots();
     this.setupPlayer();
+    this.setupEnemy();
     this.setupGame();
   };
 
@@ -166,31 +128,59 @@ class Game extends Component {
     this.stage.interactive = true;
     this.handleResize();
     this.refs.gameCanvas.appendChild(this.renderer.view);
+  };
+
+  setupCursor = () => {
+    this.cursor = new PIXI.Graphics();
+    this.cursor.moveTo(10, 10);
+    this.cursor.lineStyle(2, 0xFF5126, 0.8);
+    this.cursor.beginFill(0x000000, 0);
+    this.cursor.drawCircle(0, 0, 20);
+    this.cursor.endFill();
+    this.cursor.lineStyle(4, 0xFF5126, 0.8);
+    this.cursor.beginFill(0x000000, 0);
+    this.cursor.drawCircle(0, 0, 10);
+    this.cursor.endFill();
+    this.stage.addChild(this.cursor);
+  };
+
+  setupListeners = () => {
+    this.stage.mousemove = () => {
+      this.moveCursor();
+    };
     this.stage.mouseup = () => {
       this.shoot();
     };
   };
 
+  setupShots = () => {
+    this.shotTexture = window.devicePixelRatio >= 2 ?
+      this.resources.player128.texture : this.resources.player64.texture;
+  };
+
   setupPlayer = () => {
     const playerTexture = window.devicePixelRatio >= 2 ?
       this.resources.player128.texture : this.resources.player64.texture;
-    // player
-    this.playerSprite = new PIXI.Sprite(playerTexture);
-    this.playerSprite.anchor.set(0.5, 0.5);
-    this.playerSprite.position.set(
+    this.player.sprite = new PIXI.Sprite(playerTexture);
+    this.player.sprite.anchor.set(0.5, 0.5);
+    this.player.sprite.position.set(
       Math.floor(gameConstants.GAME_WIDTH / 4),
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
-    this.stage.addChild(this.playerSprite);
-    // enemy
-    this.enemySprite = new PIXI.Sprite(playerTexture);
-    this.enemySprite.anchor.set(0.5, 0.5);
-    this.enemySprite.scale.set(-1, 1);
-    this.enemySprite.position.set(
+    this.stage.addChild(this.player.sprite);
+  };
+
+  setupEnemy = () => {
+    const enemyTexture = window.devicePixelRatio >= 2 ?
+      this.resources.player128.texture : this.resources.player64.texture;
+    this.enemy.sprite = new PIXI.Sprite(enemyTexture);
+    this.enemy.sprite.anchor.set(0.5, 0.5);
+    this.enemy.sprite.scale.set(-1, 1);
+    this.enemy.sprite.position.set(
       Math.floor(gameConstants.GAME_WIDTH * 3 / 4),
       Math.floor(gameConstants.GAME_HEIGHT / 2),
     );
-    this.stage.addChild(this.enemySprite);
+    this.stage.addChild(this.enemy.sprite);
   };
 
   setupGame = () => {
@@ -214,7 +204,6 @@ class Game extends Component {
     let ticks = 0;
     if (timestamp > nextTick) {
       ticks = Math.floor((timestamp - this.lastTick) / this.tickLength);
-      console.log(ticks);
     }
     while (ticks >= 0){
       this.lastTick += this.tickLength;
@@ -229,68 +218,62 @@ class Game extends Component {
 
   update = () => {
     this.messageWorker('onsend');
-    // // this.managePlayers();
-    // // this.manageShots();
-    // // this.sendSocketData();
   };
 
-  /** PLAYER STATES/ACTIONS **/
+  moveCursor = () => {
+    const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
+    const mouse = { x: mouseEvent.x, y: mouseEvent.y };
+    this.cursor.position.set(mouse.x, mouse.y);
+  };
+
+  /** SHOT HANDLERS **/
 
   shoot = () => {
     const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
     const mouse = { x: mouseEvent.x, y: mouseEvent.y };
-    const initial = { x: this.playerSprite.position.x, y: this.playerSprite.position.y };
-    const diff = { x: mouse.x - initial.x, y: mouse.y - initial.y };
-    const speed = 50;
-    const ratio = Math.sqrt(speed * speed / ((diff.x * diff.x) + (diff.y * diff.y)));
-    this.setupShot(mouse, initial, diff, speed, ratio);
-  };
-
-  setupShot = (mouse, initial, diff, speed, ratio) => {
-    const shotTexture = window.devicePixelRatio >= 2 ?
-      this.resources.player128.texture : this.resources.player64.texture;
-    this.game.shots.push({
-      sprite: new PIXI.Sprite(shotTexture),
-      mouse: mouse,
-      timestamp: performance.now(),
-      initial: initial,
-      diff: diff,
-      current: initial,
-      speed: speed,
-      ratio: ratio,
-    });
-    const shot = this.game.shots[this.game.shots.length - 1];
-    shot.sprite.anchor.set(0.5, 0.5);
-    shot.sprite.position.set(this.playerSprite.position.x, this.playerSprite.position.y);
-    this.stage.addChild(shot.sprite);
-  };
-
-  /** SHOTS STATES **/
-
-  manageShots = () => {
-    if (this.game.shots.length >= 1) {
-      this.game.shots.map((shot, index) => {
-        this.moveShot(shot, index);
-      });
-    }
-  };
-
-  moveShot = (shot, index) => {
-    const x = shot.sprite.position.x + (shot.diff.x * shot.ratio);
-    const y = shot.sprite.position.y + (shot.diff.y * shot.ratio);
-    if (!checkBoundaries({ x: x, y: y })) {
-      shot.sprite.position.set(x, y);
-      shot.current = { x: x, y: y };
-    } else {
-      this.stage.removeChild(shot.sprite);
-      this.game.shots.splice(index, 1);
-    }
+    const speed = 10;
+    this.messageWorker('shoot', [mouse, speed]);
   };
 
   /** GAME HANDLERS **/
 
-  handleWorkerPosition = (playerPosition) => {
-    this.playerSprite.position.set(playerPosition.x, playerPosition.y);
+  handleWorker = (data) => {
+    const shotsToRemove = [];
+    this.player.shots.map((shot, index) => {
+      const workerIndex = data.player.shots.findIndex(workerShot => {
+        return workerShot.timestamp === shot.timestamp;
+      });
+      if (workerIndex !== -1) {
+        shot.current = data.player.shots[workerIndex].current;
+        shot.sprite.position.set(shot.current.x, shot.current.y);
+      } else {
+        shotsToRemove.push(index);
+      }
+      return shot;
+    });
+    shotsToRemove.reverse().map(shotIndex => {
+      this.stage.removeChild(this.player.shots[shotIndex].sprite);
+      this.player.shots.splice(shotIndex, 1);
+      return shotIndex;
+    });
+    const shotsToAdd = data.player.shots.filter(shot => {
+      const clientIndex = this.player.shots.findIndex(clientShot => {
+        return clientShot.timestamp === shot.timestamp;
+      });
+      return clientIndex === -1;
+    });
+    shotsToAdd.map(shot => {
+      const shotTexture = window.devicePixelRatio >= 2 ?
+        this.resources.player128.texture : this.resources.player64.texture;
+      shot.sprite = new PIXI.Sprite(shotTexture);
+      shot.sprite.anchor.set(0.5, 0.5);
+      shot.sprite.position.set(shot.current.x, shot.current.y);
+      this.stage.addChild(shot.sprite);
+    });
+    // add logic
+    this.player.shots = this.player.shots.concat(shotsToAdd);
+    this.player.sprite.position.set(data.player.position.x, data.player.position.y);
+    this.enemy.sprite.position.set(data.enemy.position.x, data.enemy.position.y);
   };
 
   handleKeyDown = (e) => {
