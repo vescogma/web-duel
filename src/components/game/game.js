@@ -128,7 +128,6 @@ class Game extends Component {
     this.stage.interactive = true;
     this.handleResize();
     this.refs.gameCanvas.appendChild(this.renderer.view);
-    this.stage.defaultCursor = "crosshair";
   };
 
   setupCursor = () => {
@@ -214,7 +213,6 @@ class Game extends Component {
   };
 
   draw = () => {
-    this.drawShots();
     this.renderer.render(this.stage);
   };
 
@@ -233,19 +231,8 @@ class Game extends Component {
   shoot = () => {
     const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
     const mouse = { x: mouseEvent.x, y: mouseEvent.y };
-    const speed = 50;
+    const speed = 10;
     this.messageWorker('shoot', [mouse, speed]);
-  };
-
-  drawShots = () => {
-    // const shotTexture = window.devicePixelRatio >= 2 ?
-    //   this.resources.player128.texture : this.resources.player64.texture;
-    // this.player.shots.map(shot => {
-    //   const sprite = new PIXI.Sprite(shotTexture);
-    //   sprite.anchor.set(0.5, 0.5);
-    //   sprite.position.set(shot.current.x, shot.current.y);
-    //   this.stage.addChild(sprite);
-    // });
   };
 
   /** GAME HANDLERS **/
@@ -258,12 +245,14 @@ class Game extends Component {
       });
       if (workerIndex !== -1) {
         shot.current = data.player.shots[workerIndex].current;
+        shot.sprite.position.set(shot.current.x, shot.current.y);
       } else {
         shotsToRemove.push(index);
       }
       return shot;
     });
     shotsToRemove.reverse().map(shotIndex => {
+      this.stage.removeChild(this.player.shots[shotIndex].sprite);
       this.player.shots.splice(shotIndex, 1);
       return shotIndex;
     });
@@ -272,6 +261,14 @@ class Game extends Component {
         return clientShot.timestamp === shot.timestamp;
       });
       return clientIndex === -1;
+    });
+    shotsToAdd.map(shot => {
+      const shotTexture = window.devicePixelRatio >= 2 ?
+        this.resources.player128.texture : this.resources.player64.texture;
+      shot.sprite = new PIXI.Sprite(shotTexture);
+      shot.sprite.anchor.set(0.5, 0.5);
+      shot.sprite.position.set(shot.current.x, shot.current.y);
+      this.stage.addChild(shot.sprite);
     });
     // add logic
     this.player.shots = this.player.shots.concat(shotsToAdd);
