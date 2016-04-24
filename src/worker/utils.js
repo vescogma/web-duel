@@ -37,3 +37,10 @@ function checkAnyKeyPressed(moveKeys) {
     return prev || moveKeys[next].status;
   }, 0);
 }
+
+function checkBoundaries(x, y, width, height) {
+  if (x < 0 || y < 0 || x > width || y > height) {
+    return true;
+  }
+  return false;
+}

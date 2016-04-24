@@ -22,6 +22,7 @@ class Worker {
     this.playerState = 'main';
     this.player = new Player(width / 4, height / 2);
     this.enemy = new Enemy(width * 3 / 4, height / 2);
+    this.shots = [];
     setInterval(this.simulation, 1000 / 60);
   }
 
@@ -32,19 +33,21 @@ class Worker {
           x: this.player.position.x,
           y: this.player.position.y,
         },
+        shots: this.shots,
       },
       enemy: {
         position: {
           x: this.enemy.position.x,
           y: this.enemy.position.y,
         }
-      }
+      },
     };
     postMessage(data);
   }
 
   simulation() {
     worker[worker.playerState]();
+    worker.manageShots();
     sendSocketData();
   }
 
@@ -64,6 +67,30 @@ class Worker {
     }
     if (!checkAnyKeyPressed(this.moveKeys)) {
       this.playerState = 'main';
+    }
+  }
+
+  shoot(mouse, speed) {
+    const initial = { x: this.player.position.x, y: this.player.position.y };
+    const shot = new Shot(mouse, speed, initial);
+    this.shots.push(shot);
+  }
+
+  manageShots() {
+    if (this.shots.length > 0) {
+      this.shots.map((shot, index) => {
+        this.moveShot(shot, index);
+      });
+    }
+  }
+
+  moveShot(shot, index) {
+    const x = shot.current.x + (shot.diff.x * shot.ratio);
+    const y = shot.current.y + (shot.diff.y * shot.ratio);
+    if (!checkBoundaries(x, y, this.width, this.height)) {
+      shot.current = { x: x, y: y };
+    } else {
+      this.shots.splice(index, 1);
     }
   }
 
