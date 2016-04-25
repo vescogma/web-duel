@@ -3,11 +3,8 @@ import gameActions from '../../actions/game';
 import gameConstants from '../../constants/game';
 import PIXI from 'pixi.js';
 import {
-  roundTo,
-  modulus,
-  checkAnyKeyPressed,
-  checkMaxMovement,
-  checkBoundaries,
+  getShotsToRemove,
+  getShotsToAdd,
 } from '../../utils/game-utils';
 
 class Game extends Component {
@@ -146,10 +143,10 @@ class Game extends Component {
 
   setupListeners = () => {
     this.stage.mousemove = () => {
-      this.moveCursor();
+      this.handleMouseMove();
     };
     this.stage.mouseup = () => {
-      this.handleShot();
+      this.handleMouseUp();
     };
   };
 
@@ -212,12 +209,6 @@ class Game extends Component {
     }
   };
 
-  moveCursor = () => {
-    const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
-    const mouse = { x: mouseEvent.x, y: mouseEvent.y };
-    this.cursor.position.set(mouse.x, mouse.y);
-  };
-
   /** GAME HANDLERS **/
 
   handleWorker = (data) => {
@@ -226,22 +217,43 @@ class Game extends Component {
   };
 
   manageShots = (data) => {
-    const shotsToRemove = getShotsToRemove(this.player.shots, data.player.shots);
-    shotsToRemove.reverse().map(shotIndex => {
-      this.stage.removeChild(this.player.shots[shotIndex].sprite);
-      this.player.shots.splice(shotIndex, 1);
-      return shotIndex;
-    });
-    const shotsToAdd = getShotsToAdd(this.player.shots, data.player.shots);
-    shotsToAdd.map(shot => {
-      const shotTexture = window.devicePixelRatio >= 2 ?
-        this.resources.player128.texture : this.resources.player64.texture;
-      shot.sprite = new PIXI.Sprite(shotTexture);
-      shot.sprite.anchor.set(0.5, 0.5);
-      shot.sprite.position.set(shot.current.x, shot.current.y);
-      this.stage.addChild(shot.sprite);
-    });
-    this.player.shots = this.player.shots.concat(shotsToAdd);
+    if (data.player.shots.length < 1 && data.enemy.shots.length < 1) {
+      this.player.shots = [];
+      this.enemy.shots = [];
+      if (this.stage.children.length > 3) {
+        this.stage.removeChildren(3);
+      }
+    } else {
+      let shotsToRemove = [];
+      // player
+      shotsToRemove = getShotsToRemove(this.player.shots, data.player.shots);
+      shotsToRemove.reverse().map(shotIndex => this.removeShot(shotIndex, this.player));
+      const playerShotsToAdd = getShotsToAdd(this.player.shots, data.player.shots);
+      playerShotsToAdd.map(shot => this.addShot(shot));
+      this.player.shots = this.player.shots.concat(playerShotsToAdd);
+      // enemy
+      shotsToRemove = getShotsToRemove(this.enemy.shots, data.enemy.shots);
+      shotsToRemove.reverse().map(shotIndex => this.removeShot(shotIndex, this.enemy));
+      const enemyShotsToAdd = getShotsToAdd(this.enemy.shots, data.enemy.shots);
+      enemyShotsToAdd.map(shot => this.addShot(shot));
+      this.enemy.shots = this.enemy.shots.concat(enemyShotsToAdd);
+    }
+  };
+
+  removeShot = (index, player) => {
+    this.stage.removeChild(player.shots[index].sprite);
+    player.shots.splice(index, 1);
+    return index;
+  };
+
+  addShot = (shot) => {
+    const shotTexture = window.devicePixelRatio >= 2 ?
+      this.resources.player128.texture : this.resources.player64.texture;
+    shot.sprite = new PIXI.Sprite(shotTexture);
+    shot.sprite.anchor.set(0.5, 0.5);
+    shot.sprite.position.set(shot.position.x, shot.position.y);
+    this.stage.addChild(shot.sprite);
+    return shot;
   };
 
   managePositions = (data) => {
@@ -249,7 +261,16 @@ class Game extends Component {
     this.enemy.sprite.position.set(data.enemy.position.x, data.enemy.position.y);
   };
 
-  handleShot = () => {
+  handleMouseMove = () => {
+    this.moveCursor(this.interaction.eventData.data.getLocalPosition(this.stage));
+  };
+
+  moveCursor = (event) => {
+    const mouse = { x: event.x, y: event.y };
+    this.cursor.position.set(mouse.x, mouse.y);
+  };
+
+  handleMouseUp = () => {
     const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);
     const mouse = { x: mouseEvent.x, y: mouseEvent.y };
     const speed = 10;
