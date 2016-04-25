@@ -1,9 +1,16 @@
 function setupSocket() {
   socket.on('enemy', data => {
     worker.enemy.position = {
-      x: (worker.width - data.player.position.x),
-      y: data.player.position.y,
+      x: (worker.width - data.position.x),
+      y: data.position.y,
     };
+    worker.enemy.shots = data.shots.map(shot => {
+      shot.position = {
+        x: (worker.width - shot.position.x),
+        y: shot.position.y,
+      };
+      return shot;
+    });
   });
   socket.on('player', data => {
     console.log('client ' + data.client + ' ' + data.status);
@@ -17,12 +24,11 @@ function setupSocket() {
 
 function sendSocketData() {
   const data = {
-    player: {
-      position: {
-        x: worker.player.position.x,
-        y: worker.player.position.y,
-      },
+    position: {
+      x: worker.player.position.x,
+      y: worker.player.position.y,
     },
+    shots: worker.player.shots,
   };
   socket.emit('data', data);
 }

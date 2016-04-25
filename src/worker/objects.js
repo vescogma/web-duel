@@ -1,12 +1,14 @@
 class Player {
   constructor(x, y) {
     this.position = { x: x, y: y };
+    this.shots = [];
   }
 }
 
 class Enemy {
   constructor(x, y) {
     this.position = { x: x, y: y };
+    this.shots = [];
   }
 }
 
@@ -18,7 +20,7 @@ class Shot {
     this.speed = speed;
     this.diff = diff;
     this.initial = initial;
-    this.current = initial;
+    this.position = initial;
     this.ratio = ratio;
     this.timestamp = performance.now();
   };
