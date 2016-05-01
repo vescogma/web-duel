@@ -2,6 +2,7 @@ class Player {
   constructor(x, y) {
     this.position = { x: x, y: y };
     this.shots = [];
+    this.life = 10;
   }
 }
 
@@ -9,6 +10,7 @@ class Enemy {
   constructor(x, y) {
     this.position = { x: x, y: y };
     this.shots = [];
+    this.life = 10;
   }
 }
 

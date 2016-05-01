@@ -6,7 +6,7 @@ var webpackHotMiddleware = require('webpack-hot-middleware');
 var config = require('../webpack.config.js');
 
 var publicPath = path.join(__dirname, '../src/');
-var port = 3000;
+var port = 3333;
 
 var compiler = webpack(config);
 var middleware = webpackDevMiddleware(compiler, {
@@ -40,7 +40,12 @@ io.on('connection', function (socket) {
   players[socket.client.id] = {
     id: socket.client.id,
     socket: socket,
-  }
+    data: {
+      life: 10,
+      position: {},
+      shots: [],
+    },
+  };
   io.emit('player', {
     client: socket.client.id,
     status: 'connected',
@@ -53,9 +58,16 @@ io.on('connection', function (socket) {
   socket.on('data', function (data) {
     var socket = this;
     var roomKey = players[socket.client.id].room;
-    var enemyID = findEnemy(socket.client.id, roomKey)
+    var enemyID = findEnemy(socket.client.id, roomKey);
+    players[socket.client.id].data = data;
     if (enemyID !== -1)  {
       io.to('/#' + enemyID).emit('enemy', data);
+      var enemy = players[enemyID].data;
+      enemy.shots.map(function(shot) {
+        if (hit(shot, enemy.position)){
+          io.to(roomKey).emit('hit', { message: enemyID + 'GOT HIT' });
+        }
+      })
     }
   });
   socket.on('disconnect', function () {
@@ -69,6 +81,14 @@ io.on('connection', function (socket) {
     });
   });
 });
+
+function hit(shot, enemy) {
+  if ((shot.x > enemy.x - 50 && shot.x < enemy.x + 50) &&
+    (shot.y > enemy.y - 50 && shot.y < enemy.y + 50)) {
+    return true;
+  }
+  return false;
+}
 
 function findEnemy(id, room) {
   var enemyIndex = rooms[room].players.findIndex(function (player) {
