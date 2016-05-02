@@ -5,7 +5,6 @@ import PIXI from 'pixi.js';
 import {
   getShotsToRemove,
   getShotsToAdd,
-  updateShots,
 } from '../../utils/game-utils';
 
 class Game extends Component {
@@ -121,7 +120,6 @@ class Game extends Component {
     this.setupStage();
     this.setupCursor();
     this.setupListeners();
-    this.setupShots();
     this.setupPlayer();
     this.setupEnemy();
     this.setupGame();
@@ -155,11 +153,6 @@ class Game extends Component {
     this.stage.mouseup = () => {
       this.handleMouseUp();
     };
-  };
-
-  setupShots = () => {
-    this.shotTexture = window.devicePixelRatio >= 2 ?
-      this.resources.player128.texture : this.resources.player64.texture;
   };
 
   setupPlayer = () => {
@@ -219,28 +212,17 @@ class Game extends Component {
   /** WORKER HANDLERS **/
 
   handleWorker = (data) => {
-    this.manageShots(data.player, data.enemy);
+    this.manageShots(this.player, data.player);
+    this.manageShots(this.enemy, data.enemy);
     this.managePositions(data.player.position, data.enemy.position);
     this.manageLife(data.player.life, data.enemy.life);
   };
 
-  manageShots = (player, enemy) => {
-    if (player.shots.length < 1 && enemy.shots.length < 1) {
-      this.player.shots = [];
-      this.enemy.shots = [];
-      if (this.stage.children.length > 3) {
-        this.stage.removeChildren(3);
-      }
-    } else {
-      this.removeUnusedShots(this.player, player);
-      this.removeUnusedShots(this.enemy, enemy);
-      this.player.shots = updateShots(this.player.shots, player.shots, player.shotTable);
-      this.enemy.shots = updateShots(this.enemy.shots, enemy.shots, enemy.shotTable);
-      this.player.shots = this.addNewShots(this.player, player);
-      this.enemy.shots = this.addNewShots(this.enemy, enemy);
-    }
-    this.player.shotTable = player.shotTable;
-    this.enemy.shotTable = enemy.shotTable;
+  manageShots = (client, worker) => {
+    this.removeUnusedShots(client, worker);
+    this.updateShots(client, worker);
+    client.shots = this.addNewShots(client, worker);
+    client.shotTable = worker.shotTable;
   };
 
   removeUnusedShots = (client, worker) => {
@@ -251,11 +233,10 @@ class Game extends Component {
   };
 
   updateShots = (client, worker) => {
-    return client.shots.map(shot => {
+    client.shots.forEach(shot => {
       const index = worker.shotTable[shot.timestamp];
       shot.position = worker.shots[index].position;
       shot.sprite.position.set(shot.position.x, shot.position.y);
-      return shot;
     });
   };
 
@@ -291,17 +272,6 @@ class Game extends Component {
     }
   };
 
-  handleMouseMove = () => {
-    this.moveCursor(this.interaction.eventData.data.getLocalPosition(this.stage));
-  };
-
-  moveCursor = (event) => {
-    const mouse = { x: event.x, y: event.y };
-    if (this.cursor.x !== mouse.x || this.cursor.y !== mouse.y) {
-      this.cursor.position.set(mouse.x, mouse.y);
-    }
-  };
-
   manageLife = (playerLife, enemyLife) => {
     if (this.player.life !== playerLife) {
       console.log(playerLife);
@@ -320,6 +290,17 @@ class Game extends Component {
   };
 
   /** EVENT HANDLERS **/
+
+  handleMouseMove = () => {
+    this.moveCursor(this.interaction.eventData.data.getLocalPosition(this.stage));
+  };
+
+  moveCursor = (event) => {
+    const mouse = { x: event.x, y: event.y };
+    if (this.cursor.x !== mouse.x || this.cursor.y !== mouse.y) {
+      this.cursor.position.set(mouse.x, mouse.y);
+    }
+  };
 
   handleMouseUp = () => {
     const mouseEvent = this.interaction.eventData.data.getLocalPosition(this.stage);

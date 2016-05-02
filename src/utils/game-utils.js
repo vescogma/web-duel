@@ -16,12 +16,3 @@ export function getShotsToAdd(workerShots, table) {
     return table[shot.timestamp] === undefined;
   });
 }
-
-export function updateShots(clientShots, workerShots, table) {
-  return clientShots.map(shot => {
-    const index = table[shot.timestamp];
-    shot.position = workerShots[index].position;
-    shot.sprite.position.set(shot.position.x, shot.position.y);
-    return shot;
-  });
-}
