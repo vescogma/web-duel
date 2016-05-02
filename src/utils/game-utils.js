@@ -1,15 +1,9 @@
 import gameConstants from '../constants/game';
 
-export function getShotsToRemove(playerData, workerData) {
+export function getShotsToRemove(playerShots, table) {
   const shotsToRemove = [];
-  playerData.map((shot, index) => {
-    const workerIndex = workerData.findIndex(workerShot => {
-      return workerShot.timestamp === shot.timestamp;
-    });
-    if (workerIndex !== -1) {
-      shot.position = workerData[workerIndex].position;
-      shot.sprite.position.set(shot.position.x, shot.position.y);
-    } else {
+  playerShots.map((shot, index) => {
+    if (table[shot.timestamp] === undefined) {
       shotsToRemove.push(index);
     }
     return shot;
@@ -17,11 +11,8 @@ export function getShotsToRemove(playerData, workerData) {
   return shotsToRemove;
 }
 
-export function getShotsToAdd(playerData, workerData) {
-  return workerData.filter(shot => {
-    const clientIndex = playerData.findIndex(clientShot => {
-      return clientShot.timestamp === shot.timestamp;
-    });
-    return clientIndex === -1;
+export function getShotsToAdd(workerShots, table) {
+  return workerShots.filter(shot => {
+    return table[shot.timestamp] === undefined;
   });
 }

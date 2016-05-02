@@ -1,5 +1,5 @@
 importScripts(
-  './socket.io.js',
+  '../utils/socket.io.js',
   './objects.js',
   './utils.js',
   './sockets.js'
@@ -33,6 +33,8 @@ class Worker {
           y: this.player.position.y,
         },
         shots: this.player.shots,
+        shotTable: getTable(this.player.shots),
+        life: this.player.life,
       },
       enemy: {
         position: {
@@ -40,14 +42,24 @@ class Worker {
           y: this.enemy.position.y,
         },
         shots: this.enemy.shots,
+        shotTable: getTable(this.enemy.shots),
+        life: this.enemy.life,
       },
     };
     postMessage(data);
+
+    function getTable(shots) {
+      return shots.reduce((shots, shot, index) => {
+        shots[shot.timestamp] = index;
+        return shots;
+      }, {});
+    }
   }
 
   simulation() {
     worker[worker.playerState]();
     worker.manageShots();
+    worker.checkCollisions();
     sendSocketData();
   }
 
@@ -94,6 +106,20 @@ class Worker {
     }
   }
 
+  checkCollisions() {
+    this.player.shots.map((shot, index) => {
+      if (hit(shot.position, this.enemy.position)) {
+        this.player.shots.splice(index, 1);
+        this.enemy.life = this.enemy.life - 1;
+      }
+    });
+    this.enemy.shots.map((shot, index) => {
+      if (hit(shot.position, this.player.position)) {
+        this.player.life = this.player.life - 1;
+      }
+    });
+  }
+
   onKeyDown(key) {
     this.moveKeys[key].status = true;
     if (key === 'KeyD'
@@ -115,7 +141,7 @@ class Worker {
 }
 
 const worker = new Worker();
-const socket = io.connect('http://localhost:3000', {
+const socket = io.connect('http://localhost:3333', {
   'sync disconnect on unload': true
 });
 onmessage = (event) => {

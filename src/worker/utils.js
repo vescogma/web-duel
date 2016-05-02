@@ -38,6 +38,14 @@ function checkAnyKeyPressed(moveKeys) {
   }, 0);
 }
 
+function hit(shot, enemy) {
+  if ((shot.x > enemy.x - 50 && shot.x < enemy.x + 50) &&
+    (shot.y > enemy.y - 50 && shot.y < enemy.y + 50)) {
+    return true;
+  }
+  return false;
+}
+
 function checkBoundaries(x, y, width, height) {
   if (x < 0 || y < 0 || x > width || y > height) {
     return true;
