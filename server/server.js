@@ -36,17 +36,22 @@ var sockets = {};
 var rooms = {};
 var roomCounter = 0;
 
+var GAME_WIDTH = 1080;
+var GAME_HEIGHT = 720;
+
 io.on('connection', function (socket) {
+  console.log('client ' + socket.client.id + ' connected');
   players[socket.client.id] = {
     id: socket.client.id,
     socket: socket,
+    lifeHits: [],
+    life: 10,
     data: {
-      life: 10,
       position: {},
       shots: [],
     },
   };
-  io.emit('player', {
+  io.emit('client', {
     client: socket.client.id,
     status: 'connected',
     count: io.engine.clientsCount,
@@ -57,20 +62,29 @@ io.on('connection', function (socket) {
   joinRoom(socket.client.id, socket);
   socket.on('data', function (data) {
     var socket = this;
-    var roomKey = players[socket.client.id].room;
+    var player = players[socket.client.id];
+    var roomKey = player.room;
     var enemyID = findEnemy(socket.client.id, roomKey);
-    players[socket.client.id].data = data;
+    mergeData(socket.client.id, data);
     if (enemyID !== -1)  {
-      io.to('/#' + enemyID).emit('enemy', data);
-      var enemy = players[enemyID].data;
-      enemy.shots.map(function(shot) {
-        if (hit(shot, enemy.position)){
-          io.to(roomKey).emit('hit', { message: enemyID + 'GOT HIT' });
+      var enemy = players[enemyID];
+      enemy.data.shots.map(function(shot) {
+        var playerPos = mirror(player.data.position);
+        if (hit(shot.position, playerPos)){
+          if (hitCheck(player.id, shot.timestamp) === -1) {
+            player.lifeHits.push(shot.timestamp);
+            player.life = player.life - 1;
+            console.log(player.id + ' was hit');
+            io.to(roomKey).emit('hit', { id: player.id, life: player.life });
+          }
         }
-      })
+      });
+      io.to('/#' + enemy.id).emit('enemy', sendEnemyData(player));
     }
+    io.to('/#' + player.id).emit('player', sendPlayerData(player));
   });
   socket.on('disconnect', function () {
+    console.log('client ' + this.client.id + ' disconnected');
     var id = this.client.id;
     leaveRoom(id, this);
     delete players[id];
@@ -82,7 +96,18 @@ io.on('connection', function (socket) {
   });
 });
 
+function hitCheck(id, shotID) {
+  return players[id].lifeHits.findIndex(function (hits) {
+    return hits === shotID;
+  });
+}
+
+function mirror(pos) {
+  return { x: GAME_WIDTH - pos.x, y: pos.y };
+}
+
 function hit(shot, enemy) {
+  console.log(shot, enemy);
   if ((shot.x > enemy.x - 50 && shot.x < enemy.x + 50) &&
     (shot.y > enemy.y - 50 && shot.y < enemy.y + 50)) {
     return true;
@@ -95,6 +120,25 @@ function findEnemy(id, room) {
     return player.id !== id;
   });
   return enemyIndex === -1 ? -1 : rooms[room].players[enemyIndex].id;
+}
+
+function sendEnemyData(enemy) {
+  return {
+    position: enemy.data.position,
+    shots: enemy.data.shots,
+    life: enemy.life,
+  };
+}
+
+function sendPlayerData(player) {
+  return {
+    life: player.life,
+  };
+}
+
+function mergeData(id, newData) {
+  players[id].data.position = newData.position;
+  players[id].data.shots = newData.shots;
 }
 
 function leaveRoom(id, socket) {

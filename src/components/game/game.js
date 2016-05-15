@@ -64,8 +64,8 @@ class Game extends Component {
 
   removeListenerEvents = () => {
     window.removeEventListener('resize', this.handleResize);
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
   };
 
   /** WORKER EVENTS **/
@@ -274,14 +274,14 @@ class Game extends Component {
 
   manageLife = (playerLife, enemyLife) => {
     if (this.player.life !== playerLife) {
-      console.log(playerLife);
+      console.log('your life: ' + playerLife);
       this.player.life = playerLife;
       if (playerLife === 0) {
         console.log('YOU HAVE BEEN DEFEATED');
       }
     }
     if (this.enemy.life !== enemyLife) {
-      console.log(enemyLife);
+      console.log('enemy life: ' + enemyLife);
       this.enemy.life = enemyLife;
       if (enemyLife === 0) {
         console.log('YOU HAVE DEFEATED YOUR OPPONENT');

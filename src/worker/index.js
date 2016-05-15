@@ -59,7 +59,7 @@ class Worker {
   simulation() {
     worker[worker.playerState]();
     worker.manageShots();
-    worker.checkCollisions();
+    // worker.checkCollisions();
     sendSocketData();
   }
 
@@ -85,7 +85,9 @@ class Worker {
   shoot(mouse, speed) {
     const initial = { x: this.player.position.x, y: this.player.position.y };
     const shot = new Shot(mouse, speed, initial);
-    this.player.shots.push(shot);
+    if (this.player.shots.length < 1) {
+      this.player.shots.push(shot);
+    }
   }
 
   manageShots() {
@@ -104,20 +106,6 @@ class Worker {
     } else {
       this.player.shots.splice(index, 1);
     }
-  }
-
-  checkCollisions() {
-    this.player.shots.map((shot, index) => {
-      if (hit(shot.position, this.enemy.position)) {
-        this.player.shots.splice(index, 1);
-        this.enemy.life = this.enemy.life - 1;
-      }
-    });
-    this.enemy.shots.map((shot, index) => {
-      if (hit(shot.position, this.player.position)) {
-        this.player.life = this.player.life - 1;
-      }
-    });
   }
 
   onKeyDown(key) {

@@ -14,8 +14,14 @@ function setupSocket() {
     worker.enemy.life = data.life;
   });
   socket.on('player', data => {
+    worker.player.life = data.life;
+  });
+  socket.on('client', data => {
     console.log('client ' + data.client + ' ' + data.status);
     console.log('total clients: ' + data.count);
+  });
+  socket.on('hit', data => {
+    console.log('client ' + data.id + ' was hit!');
   });
   socket.on('room', data => {
     console.log('player ' + data.player + ' ' + data.action);
@@ -30,7 +36,7 @@ function sendSocketData() {
       y: worker.player.position.y,
     },
     shots: worker.player.shots,
-    life: worker.player.life,
+    // life: worker.player.life,
   };
   socket.emit('data', data);
 }
