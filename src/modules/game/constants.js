@@ -1,6 +1,6 @@
-const GAME_WIDTH = 1080;
-const GAME_HEIGHT = 720;
-const MOVE_KEYS = {
+export const GAME_WIDTH = 1080;
+export const GAME_HEIGHT = 720;
+export const MOVE_KEYS = {
   37: true,
   38: true,
   39: true,
@@ -10,7 +10,7 @@ const MOVE_KEYS = {
   83: true,
   87: true,
 };
-const MOVE_NAMES = {
+export const MOVE_NAMES = {
   ArrowRight: false,
   ArrowLeft: false,
   ArrowUp: false,
@@ -20,12 +20,3 @@ const MOVE_NAMES = {
   KeyW: false,
   KeyS: false,
 };
-
-const gameConstants = {
-  GAME_WIDTH,
-  GAME_HEIGHT,
-  MOVE_KEYS,
-  MOVE_NAMES,
-};
-
-export default gameConstants;

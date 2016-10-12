@@ -76,6 +76,17 @@ module.exports = {
     ];
   },
   resolve: {
-    extensions: ['', '.js', '.jsx']
+    extensions: ['', '.js', '.jsx'],
+    root: path.resolve(__dirname, 'src'),
+    alias: {
+      assets: 'assets',
+      containers: 'containers',
+      css: 'css',
+      modules: 'modules',
+      shared: 'shared',
+      store: 'store',
+      utils: 'utils',
+      worker: 'worker',
+    },
   }
 }

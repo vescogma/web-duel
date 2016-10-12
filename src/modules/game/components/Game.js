@@ -1,11 +1,11 @@
 import React, { Component } from 'react';
-import gameActions from '../../actions/game';
-import gameConstants from '../../constants/game';
+import * as gameActions from 'modules/game/actions';
+import  * as gameConstants from 'modules/game/constants';
 import PIXI from 'pixi.js';
 import {
   getShotsToRemove,
   getShotsToAdd,
-} from '../../utils/game-utils';
+} from 'modules/game/utils';
 
 class Game extends Component {
   constructor(props) {

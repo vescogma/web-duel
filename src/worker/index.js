@@ -129,7 +129,7 @@ class Worker {
 }
 
 const worker = new Worker();
-const socket = io.connect('http://localhost:3333', {
+const socket = io.connect('http://192.168.0.194:3333', {
   'sync disconnect on unload': true
 });
 onmessage = (event) => {

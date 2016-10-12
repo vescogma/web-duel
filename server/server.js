@@ -107,7 +107,6 @@ function mirror(pos) {
 }
 
 function hit(shot, enemy) {
-  console.log(shot, enemy);
   if ((shot.x > enemy.x - 50 && shot.x < enemy.x + 50) &&
     (shot.y > enemy.y - 50 && shot.y < enemy.y + 50)) {
     return true;
