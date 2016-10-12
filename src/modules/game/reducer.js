@@ -1,6 +1,6 @@
 import {
   SET_GAME_STATE,
-} from '../constants';
+} from 'modules/game/constants';
 
 const INITIAL_STATE = {
   gameState: 'play',

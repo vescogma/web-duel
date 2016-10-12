@@ -10,7 +10,7 @@ module.exports = {
     'webpack-hot-middleware/client?reload=true',
     path.join(__dirname, './src/index.js'),
   ],
-  devtool: 'eval-source-map',
+  devtool: '#eval-source-map',
   output: {
     path: path.join(__dirname, 'dist'),
     filename: 'bundle.js',
@@ -76,6 +76,17 @@ module.exports = {
     ];
   },
   resolve: {
-    extensions: ['', '.js', '.jsx']
+    extensions: ['', '.js', '.jsx'],
+    root: path.resolve(__dirname, 'src'),
+    alias: {
+      assets: 'assets',
+      containers: 'containers',
+      css: 'css',
+      modules: 'modules',
+      shared: 'shared',
+      store: 'store',
+      utils: 'utils',
+      worker: 'worker',
+    },
   }
 }

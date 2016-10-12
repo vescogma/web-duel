@@ -1,7 +1,7 @@
 import React from 'react';
 import { IndexRoute, Route } from 'react-router';
-import App from '../components/app';
-import Game from '../components/game/game';
+import App from 'containers/app';
+import Game from 'modules/game/components/Game';
 
 export default (
   <Route path="/" component={ App }>

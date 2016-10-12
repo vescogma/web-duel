@@ -1,11 +1,11 @@
 import React, { Component } from 'react';
-import gameActions from '../../actions/game';
-import gameConstants from '../../constants/game';
+import * as gameActions from 'modules/game/actions';
+import  * as gameConstants from 'modules/game/constants';
 import PIXI from 'pixi.js';
 import {
   getShotsToRemove,
   getShotsToAdd,
-} from '../../utils/game-utils';
+} from 'modules/game/utils';
 
 class Game extends Component {
   constructor(props) {
@@ -64,8 +64,8 @@ class Game extends Component {
 
   removeListenerEvents = () => {
     window.removeEventListener('resize', this.handleResize);
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
   };
 
   /** WORKER EVENTS **/
@@ -274,14 +274,14 @@ class Game extends Component {
 
   manageLife = (playerLife, enemyLife) => {
     if (this.player.life !== playerLife) {
-      console.log(playerLife);
+      console.log('your life: ' + playerLife);
       this.player.life = playerLife;
       if (playerLife === 0) {
         console.log('YOU HAVE BEEN DEFEATED');
       }
     }
     if (this.enemy.life !== enemyLife) {
-      console.log(enemyLife);
+      console.log('enemy life: ' + enemyLife);
       this.enemy.life = enemyLife;
       if (enemyLife === 0) {
         console.log('YOU HAVE DEFEATED YOUR OPPONENT');

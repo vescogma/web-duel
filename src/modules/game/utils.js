@@ -1,4 +1,4 @@
-import gameConstants from '../constants/game';
+import * as gameConstants from 'modules/game/constants';
 
 export function getShotsToRemove(playerShots, table) {
   const shotsToRemove = [];
